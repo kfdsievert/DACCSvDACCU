@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import xlsxwriter
 
-
 def load_input_abatement_cost(file_path, tech):
     """Loads data on abatement costs from master excel sheet and formulates into a dataframe with min, 25%, median, 75%, and max values for each technology."""
 
@@ -22,12 +21,20 @@ def load_input_abatement_cost(file_path, tech):
     # First row is headers and is skipped
     input_abatement_cost = pd.read_excel(file_path, sheet_name='Standardization Results', skiprows=skiprows, index_col=0)
 
-    input_abatement_cost_short = input_abatement_cost[input_abatement_cost[year_col] < 2031]
-    input_abatement_cost_long = input_abatement_cost[input_abatement_cost[year_col] == 2050] 
+    # Filter studies with both current (≤2025) and future (2050) costs
+    input_abatement_cost = input_abatement_cost.groupby(input_abatement_cost.index).filter(
+        lambda x: any(x[year_col] <= 2025) and any(x[year_col] == 2050)
+    )
+    
+    # Filter data for short- and long-term costs
+    input_abatement_cost_short = input_abatement_cost[input_abatement_cost[year_col] <= 2025]
+    input_abatement_cost_long = input_abatement_cost[input_abatement_cost[year_col] == 2050]
 
+    # Describe statistics
     input_abatement_cost_short = input_abatement_cost_short[cost_col].describe()
     input_abatement_cost_long = input_abatement_cost_long[cost_col].describe()
 
+    # Generate yearly abatement cost interpolations
     yearly_abatement_cost = {}
     yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short['25%'], input_abatement_cost_long['25%'], 25)
     yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short['75%'], input_abatement_cost_long['75%'], 25) 
@@ -37,10 +44,3 @@ def load_input_abatement_cost(file_path, tech):
 # Example Usage
 abatement_cost_saf = load_input_abatement_cost("data/Master Standardisation_SAF.xlsx", tech='SAF')
 abatement_cost_daccs = load_input_abatement_cost("data/Master Standardisation DACCS.xlsx", tech='DACCS')
-
-
-
- 
-
-
-    
