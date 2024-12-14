@@ -13,7 +13,7 @@ def load_input_abatement_cost(file_path, tech):
     if tech == 'DACCS':
         cost_col = "Fully Harmonized NET REMOVED COST (incl T&S"
         skiprows = 1
-        year_col = "Year of Assumption in Study"
+        year_col = "Year of Assumptions in Study"
     elif tech == 'SAF':
         cost_col = "Fully Harmonized"
         skiprows = 0
@@ -45,7 +45,7 @@ def load_input_abatement_cost(file_path, tech):
 def load_base_inputs(file_path):
     """Loads base inputs from an excel file and returns a dataframe."""
 
-    base_inputs = pd.read_excel(file_path, sheet_name='base_input_brazzola', index_col=0)
+    base_inputs = pd.read_csv(file_path, index_col=0)
 
     # Select all rows but only the first two columns
     base_inputs = base_inputs.iloc[:, :2]
