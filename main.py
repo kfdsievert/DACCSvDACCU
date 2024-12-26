@@ -14,6 +14,13 @@ N_YEARS = SIMULATION_END - SIMULATION_START
 ANNUAL_DEMAND_GROWTH_RATE = 0.02
 ANNUAL_EFFICIENCY_CHANGE = 0.01
 DT = 20 # Years for GWP* calculation
+# DACCU factors are considered from Brazzola et. al. 2024
+# These are multipliers for the level of emissions from DACCU fuelled aircraft.
+DACCU_FACTORS = { 
+    'CO2': 0, 
+    'Net NOx': 0.9,
+    'CC': 0.55
+}
 
 #---------------- Generate aviation demand ----------------#
 df_demand = functions.generate_aviation_demand(
@@ -37,13 +44,15 @@ gwp = functions.generate_equivalence_gwp(
     df_demand,
     ANNUAL_EFFICIENCY_CHANGE,
     N_YEARS,
-    metric = "GWP20"
+    metric = "GWP100"
 )
 
 #---------------- Obtain GWP* Equivalence for 2050 ----------------#
 gwp_star = functions.generate_equivalence_gwp_star(
-    df_erf, 
+    df_erf,
+    base_inputs, 
     2050,
+    DACCU_FACTORS,
     DT
 )
 

@@ -48,7 +48,7 @@ def load_base_inputs(file_path):
     base_inputs = pd.read_csv(file_path, index_col=0)
 
     # Select all rows but only the first two columns
-    base_inputs = base_inputs.iloc[:, :2]
+    base_inputs = base_inputs.iloc[:, :3]
 
     return base_inputs
 
@@ -192,7 +192,7 @@ def project_erf(lee_df, ANNUAL_EFFICIENCY_CHANGE, ANNUAL_DEMAND_GROWTH, SIMULATI
     
     return erf_df
 
-def generate_equivalence_gwp_star(erf_df, year, DT):
+def generate_equivalence_gwp_star(erf_df, base_inputs, year, DACCU_FACTORS, DT):
     """
     Generate GWP100* values for NOx and C-C based on ERF values.
 
@@ -209,17 +209,34 @@ def generate_equivalence_gwp_star(erf_df, year, DT):
     AGWP_CO2 = 0.088 # Absolute GWP of CO2 in mWm-2 yr Mt-1 from Lee et. al. 2021 Supplementary Material AGWP-CO2 sheet
     dt = DT # Time span between emission pulses in GWP*. This is the default from Brazzola et. al. 2022
 
+    # DACCU deployment in selected year
+    daccu_deployed_current = base_inputs.loc[year, 'PROGRESSION_CURVE']
+    fossil_share_current = 1 - daccu_deployed_current
+    # DACCU deployment in dt years ago
+    daccu_deployed_past = base_inputs.loc[year-dt, 'PROGRESSION_CURVE']
+    fossil_share_past = 1 - daccu_deployed_past
+
     # ERF values for the year in which equivalence is being measured
-    nox_erf_current = erf_df.loc[year, 'NOx']
-    cc_erf_current = erf_df.loc[year, 'C-C']
+    nox_erf_current_fossil = erf_df.loc[year, 'NOx'] * fossil_share_current
+    cc_erf_current_fossil = erf_df.loc[year, 'C-C'] * fossil_share_current
+    nox_erf_current_daccu = erf_df.loc[year, 'NOx'] * daccu_deployed_current * DACCU_FACTORS['Net NOx']
+    cc_erf_current_daccu = erf_df.loc[year, 'C-C'] * daccu_deployed_current * DACCU_FACTORS['CC']
+
+    nox_erf_current_total = nox_erf_current_fossil + nox_erf_current_daccu 
+    cc_erf_current_total = cc_erf_current_fossil + cc_erf_current_daccu
 
     # ERF value for "DT" years ago. Default value is 20 years.
-    nox_erf_past = erf_df.loc[year-dt, 'NOx'] 
-    cc_erf_past = erf_df.loc[year-dt, 'C-C']
+    nox_erf_past_fossil = erf_df.loc[year-dt, 'NOx'] * fossil_share_past
+    cc_erf_past_fossil = erf_df.loc[year-dt, 'C-C'] * fossil_share_past
+    nox_erf_past_daccu = erf_df.loc[year-dt, 'NOx'] * daccu_deployed_past * DACCU_FACTORS['Net NOx']
+    cc_erf_past_daccu = erf_df.loc[year-dt, 'C-C'] * daccu_deployed_past * DACCU_FACTORS['CC']
+
+    nox_erf_past_total = nox_erf_past_fossil + nox_erf_past_daccu
+    cc_erf_past_total = cc_erf_past_fossil + cc_erf_past_daccu
 
     # Calulate GWP* values in Tg CO2 eq. for NOx and Contrail cirrus
-    nox_gwp_star = ((nox_erf_current - nox_erf_past)/dt) * (H / AGWP_CO2) # Formula for GWP* calculation adopted from Brazzola et. al. 2022 
-    cc_gwp_star = ((cc_erf_current - cc_erf_past)/dt) * (H / AGWP_CO2)
+    nox_gwp_star = ((nox_erf_current_total - nox_erf_past_total)/dt) * (H / AGWP_CO2) # Formula for GWP* calculation adopted from Brazzola et. al. 2022 
+    cc_gwp_star = ((cc_erf_current_total - cc_erf_past_total)/dt) * (H / AGWP_CO2)
 
     gwp_star_df = pd.DataFrame({
         "NOx": nox_gwp_star,
