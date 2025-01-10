@@ -56,6 +56,7 @@ def load_input_abatement_cost(file_path, tech):
 
     # Generate yearly abatement cost interpolations
     yearly_abatement_cost = pd.DataFrame()
+    yearly_abatement_cost['50%'] = np.linspace(input_abatement_cost_short['50%'], input_abatement_cost_long['50%'], 25)
     yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short['25%'], input_abatement_cost_long['25%'], 25)
     yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short['75%'], input_abatement_cost_long['75%'], 25) 
 
@@ -327,7 +328,6 @@ def calculate_ERF(df, e_factors):
     :param e_factors: sensitivity to emissions reported in Lee et al. 2021
     :return: ERF of each species in each year
     """
-    #f_CO2 = ufloat(0.035, 0.00057) # sensitivity to emissions for CO2
     # Index is datetime 2018 - 2050
     index = pd.date_range(start='2018', end='2051', freq='Y')
     columns = e_factors.keys()

@@ -1,5 +1,4 @@
 import functions
-import test_brazzola
 import pandas as pd
 
 #---------------- Scenario Descriptions ----------------#
@@ -21,7 +20,7 @@ ANNUAL_DEMAND_GROWTH_RATE = 0.02
 ANNUAL_EFFICIENCY_CHANGE = 0.01
 MJ_PER_L = 34.69 # Standard volumetric energy density of SAF
 DT = 20 # Years for GWP* calculation
-# DACCU factors are considered from Brazzola et. al. 2024
+# DACCU factors are obtained from Brazzola et. al. 2024
 # These are multipliers for the level of emissions from DACCU fuelled aircraft.
 DACCU_FACTORS = { 
     'CO2': 0, 
@@ -29,6 +28,7 @@ DACCU_FACTORS = {
     'Contrail Cirrus and C-C': 0.55
 }
 
+# ERF factors are obtained from Lee et. al. 2021
 ERF_FACTORS = {
     # Nitrogen-related factors (mW/m²/TgN)
     "O3 short":  34.44,
@@ -56,7 +56,7 @@ df_demand = functions.generate_aviation_demand(
 )
 
 #--------------- Generate CO2 Emissions based on demand ---------------# 
-# Future emissions from aviation
+# Future emissions from aviation in BAU scenario
 future_emissions_fossil = functions.future_aviation_emissions(
     base_inputs,
     ANNUAL_EFFICIENCY_CHANGE,
@@ -65,6 +65,7 @@ future_emissions_fossil = functions.future_aviation_emissions(
     DACCU_FACTORS=DACCU_FACTORS
 )
 
+# Future emissions from aviation in DACCU scenario
 future_emissions_daccu = functions.future_aviation_emissions(
     base_inputs,
     ANNUAL_EFFICIENCY_CHANGE,
@@ -73,8 +74,7 @@ future_emissions_daccu = functions.future_aviation_emissions(
     DACCU_FACTORS=DACCU_FACTORS
 )
 
-
-
+#---------------- Calculate ERF for all species emitted ----------------#
 # Calculate ERF from all species emitted
 erf_fossil = functions.calculate_ERF(
     future_emissions_fossil,
@@ -85,8 +85,6 @@ erf_daccu = functions.calculate_ERF(
     future_emissions_daccu,
     ERF_FACTORS
 )
-
-
 #---------------- Obtain GWP Equivalence for 2050 ----------------#
 gwp_100 = functions.generate_equivalence_gwp(
     df_demand,
@@ -97,6 +95,7 @@ gwp_100 = functions.generate_equivalence_gwp(
     N_YEARS,
     metric = "GWP100"
 )
+
 gwp_20 = functions.generate_equivalence_gwp(
     df_demand,
     base_inputs,
@@ -106,9 +105,12 @@ gwp_20 = functions.generate_equivalence_gwp(
     N_YEARS,
     metric = "GWP20"
 )
+
+# Combine into one dataframe
 gwp = pd.concat([gwp_100, gwp_20])
 # Total emissions by summing up rows
 gwp.loc[:,"Total"] = gwp.sum(axis=1)
+
 #---------------- Obtain GWP* Equivalence for 2050 ----------------#
 gwp_star = functions.generate_equivalence_gwp_star(
     erf_df_fossil = erf_fossil,
@@ -119,15 +121,15 @@ gwp_star = functions.generate_equivalence_gwp_star(
     dt = DT
 )
 
-# Append the CO2 column to gwp star from gwp.
+# Append the CO2 column to gwp star from gwp as CO2 emissions are the same for both
 gwp_star.loc["GWP* BAU", "CO2"] = float(gwp_100.loc["GWP100 BAU", "CO2"])
 # Total emissions by summing up rows
 gwp_star.loc[:,"Total"] = gwp_star.sum(axis=1)
 
 #---------------- Calculate abatement costs ----------------#
-
 # Cost of deploying SAF to abate total emissions from aviation in 2050. 
 # The cost is is calculated by multiplying the abatement cost ($/tCO2) with the total emissions (tCO2) in 2050.
+
 abatement_cost_saf = functions.calculate_abatement_cost_saf(
     abatement_curve_saf, 
     gwp_100, 
@@ -135,9 +137,7 @@ abatement_cost_saf = functions.calculate_abatement_cost_saf(
     SIMULATION_START
 )
 
-print(abatement_cost_saf)
-
-# Cost of abating residual emissions using DACCS
+# Cost of abating residualS SAF emissions using DACCS
 residual_abatement_cost_saf = functions.calculate_residual_abatement_saf(
     residual_emissions_saf,
     df_demand,
@@ -148,14 +148,12 @@ residual_abatement_cost_saf = functions.calculate_residual_abatement_saf(
 )
 
 #---------------- Calculate total abatement costs ----------------#
-total_abatement_cost_saf = abatement_cost_saf + residual_abatement_cost_saf
+total_abatement_cost_saf = abatement_cost_saf + residual_abatement_cost_saf # In $2050
 
-abatement_costs_saf_per_ton_eq = functions.calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gwp_star) # Total abatement cost per tonne of CO2 equivalent
+abatement_costs_saf_per_ton_eq = functions.calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gwp_star) # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.]
 
-print(abatement_costs_saf_per_ton_eq)
-
-
-
-
-
-
+#---------------- Export results ----------------#
+gwp.to_csv("outputs/gwp.csv")
+gwp_star.to_csv("outputs/gwp_star.csv")
+for key, value in abatement_costs_saf_per_ton_eq.items():
+    value.to_csv(f"outputs/{key}_abatement_cost.csv")
