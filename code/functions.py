@@ -499,7 +499,7 @@ def calculate_total_abatement_cost_saf_non_co2 (total_abatement_cost_saf, gwp, g
     abatement_costs_saf = {
         "GWP100": abatement_cost_saf_per_ton_gwp_100,
         "GWP20": abatement_cost_saf_per_ton_gwp_20,
-        "GWP*": abatement_cost_saf_per_ton_gwp_star
+        "GWP Star": abatement_cost_saf_per_ton_gwp_star
     }
 
 
