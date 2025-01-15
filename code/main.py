@@ -152,8 +152,13 @@ total_abatement_cost_saf = abatement_cost_saf + residual_abatement_cost_saf # In
 
 abatement_costs_saf_per_ton_eq = functions.calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gwp_star) # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.]
 
+abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatemnet_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_star) # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.]
+
 #---------------- Export results ----------------#
 gwp.to_csv("outputs/gwp.csv")
 gwp_star.to_csv("outputs/gwp_star.csv")
 for key, value in abatement_costs_saf_per_ton_eq.items():
-    value.to_csv(f"outputs/{key}_abatement_cost.csv")
+    value.to_csv(f"outputs/{key}_abatement_cost_saf.csv")
+
+for key, value in abatement_costs_daccs_per_ton_eq.items():
+    value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv")

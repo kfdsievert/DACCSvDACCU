@@ -505,6 +505,45 @@ def calculate_total_abatement_cost_saf_non_co2 (total_abatement_cost_saf, gwp, g
 
     return abatement_costs_saf
 
+def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_star):
+    
+    """Function to calculate the abatement cost of DACCS when non-CO2 effects are included
+
+    Params:
+    - abatement_curve_daccs: DataFrame with abatement cost data for DACCS
+    - gwp: DataFrame with GWP20 and GWP100 values for CO2, NOx, and C-C in BAU and DACCU scenarios
+    - gwp_star: DataFrame with GWP* values for CO2, NOx, and C-C in BAU and DACCU scenarios
+
+    Returns:
+    - Dictionary with abatement costs for GWP100, GWP20, and GWP* in $/ton of CO2 eq.
+    """
+
+    # Calculate total cost of abatement of CO2 emissions using DACCS in 2050 (same for all scenarios)
+    total_abatement_daccs = gwp.loc["GWP100 BAU", "CO2"] # Same for all scenarios, in MT CO2
+
+    non_co2_emissions_to_abate_gwp_100 = (gwp.loc["GWP100 BAU", "Total"] - gwp.loc["GWP100 DACCU", "Total"] - total_abatement_daccs) * 10**6# in T of CO2 eq.
+    ratio_gwp_100 = non_co2_emissions_to_abate_gwp_100 / (total_abatement_daccs * 10**6) # Ratio of non-CO2 emissions to CO2 emissions abated
+
+    non_co2_emissions_to_abate_gwp_20 = (gwp.loc["GWP20 BAU", "Total"] - gwp.loc["GWP20 DACCU", "Total"] - total_abatement_daccs) * 10**6
+    ratio_gwp_20 = non_co2_emissions_to_abate_gwp_20 / (total_abatement_daccs * 10**6)
+
+    non_co2_emissions_to_abate_gwp_star = (gwp_star.loc["GWP* BAU", "Total"] - gwp_star.loc["GWP* DACCU", "Total"] - total_abatement_daccs) * 10**6
+    ratio_gwp_star = non_co2_emissions_to_abate_gwp_star / (total_abatement_daccs * 10**6)
+
+    # Calculate abatement cost per ton of CO2 eq. for each GWP metric
+    abatement_cost_per_ton_co2_2050 = abatement_curve_daccs.iloc[-1] # in $/T CO2
+    abatement_cost_daccs_per_ton_gwp_100 = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_100)
+    abatement_cost_daccs_per_ton_gwp_20 = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_20)
+    abatement_cost_daccs_per_ton_gwp_star = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_star)
+
+    abatement_costs_daccs = {
+        "GWP100": abatement_cost_daccs_per_ton_gwp_100,
+        "GWP20": abatement_cost_daccs_per_ton_gwp_20,
+        "GWP Star": abatement_cost_daccs_per_ton_gwp_star
+    }
+
+    return abatement_costs_daccs
+
 
 
 
