@@ -122,6 +122,7 @@ gwp_star = functions.generate_equivalence_gwp_star(
 )
 
 # Append the CO2 column to gwp star from gwp as CO2 emissions are the same for both
+gwp_star["CO2"] = gwp_star["CO2"].astype(float)
 gwp_star.loc["GWP* BAU", "CO2"] = float(gwp_100.loc["GWP100 BAU", "CO2"])
 # Total emissions by summing up rows
 gwp_star.loc[:,"Total"] = gwp_star.sum(axis=1)
@@ -162,3 +163,5 @@ for key, value in abatement_costs_saf_per_ton_eq.items():
 
 for key, value in abatement_costs_daccs_per_ton_eq.items():
     value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv")
+
+print("Simulation complete. Results exported to outputs folder.")

@@ -499,7 +499,7 @@ def calculate_total_abatement_cost_saf_non_co2 (total_abatement_cost_saf, gwp, g
     abatement_costs_saf = {
         "GWP100": abatement_cost_saf_per_ton_gwp_100,
         "GWP20": abatement_cost_saf_per_ton_gwp_20,
-        "GWP Star": abatement_cost_saf_per_ton_gwp_star
+        "GWP_star": abatement_cost_saf_per_ton_gwp_star
     }
 
 
@@ -539,7 +539,7 @@ def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_s
     abatement_costs_daccs = {
         "GWP100": abatement_cost_daccs_per_ton_gwp_100,
         "GWP20": abatement_cost_daccs_per_ton_gwp_20,
-        "GWP Star": abatement_cost_daccs_per_ton_gwp_star
+        "GWP_star": abatement_cost_daccs_per_ton_gwp_star
     }
 
     return abatement_costs_daccs
