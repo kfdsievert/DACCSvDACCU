@@ -40,26 +40,60 @@ def load_input_abatement_cost(file_path, tech):
 
     # First row is headers and is skipped
     input_abatement_cost = pd.read_excel(file_path, sheet_name='Standardization Results', skiprows=skiprows, index_col=0)
+    
+    if tech == 'SAF':
+        input_abatement_cost_low = pd.read_excel(file_path, sheet_name='Low CO2', skiprows=skiprows, index_col=0)
+        input_abatement_cost_high = pd.read_excel(file_path, sheet_name='High CO2', skiprows=skiprows, index_col=0)
+
 
     # Filter studies with both current (<=2025) and future (2050) costs. The lambda function is used with the filter here.
     input_abatement_cost = input_abatement_cost.groupby(input_abatement_cost.index).filter(
         lambda x: any(x[year_col] <= 2025) and any(x[year_col] == 2050)
     )
+    if tech == 'SAF':
+        input_abatement_cost_low = input_abatement_cost_low.groupby(input_abatement_cost_low.index).filter(
+            lambda x: any(x[year_col] <= 2025) and any(x[year_col] == 2050)
+        )
+        input_abatement_cost_high = input_abatement_cost_high.groupby(input_abatement_cost_high.index).filter(
+            lambda x: any(x[year_col] <= 2025) and any(x[year_col] == 2050)
+        )
     
     # Filter data for short- and long-term costs
     input_abatement_cost_short = input_abatement_cost[input_abatement_cost[year_col] <= 2025]
     input_abatement_cost_long = input_abatement_cost[input_abatement_cost[year_col] == 2050]
 
+    if tech == 'SAF':
+        input_abatement_cost_short_low = input_abatement_cost_low[input_abatement_cost_low[year_col] <= 2025]
+        input_abatement_cost_long_low = input_abatement_cost_low[input_abatement_cost_low[year_col] == 2050]
+        input_abatement_cost_short_high = input_abatement_cost_high[input_abatement_cost_high[year_col] <= 2025]
+        input_abatement_cost_long_high = input_abatement_cost_high[input_abatement_cost_high[year_col] == 2050]
+
     # Descriptive statistics
     input_abatement_cost_short = input_abatement_cost_short[cost_col].describe()
     input_abatement_cost_long = input_abatement_cost_long[cost_col].describe()
 
-    # Generate yearly abatement cost interpolations
-    yearly_abatement_cost = pd.DataFrame()
-    yearly_abatement_cost['50%'] = np.linspace(input_abatement_cost_short['50%'], input_abatement_cost_long['50%'], 25)
-    yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short['25%'], input_abatement_cost_long['25%'], 25)
-    yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short['75%'], input_abatement_cost_long['75%'], 25) 
+    # For SAF, descriptive statistics are taken from High (75th percentile) and Low(25th percentile) CO2 prices
+    if tech == 'SAF':
+        input_abatement_cost_short_low = input_abatement_cost_short_low[cost_col].describe()
+        input_abatement_cost_long_low = input_abatement_cost_long_low[cost_col].describe()
+        input_abatement_cost_short_high = input_abatement_cost_short_high[cost_col].describe()
+        input_abatement_cost_long_high = input_abatement_cost_long_high[cost_col].describe()
 
+    # Generate yearly abatement cost interpolations
+    if tech == "DACCS":
+        yearly_abatement_cost = pd.DataFrame()
+        yearly_abatement_cost['50%'] = np.linspace(input_abatement_cost_short['50%'], input_abatement_cost_long['50%'], 25)
+        yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short['25%'], input_abatement_cost_long['25%'], 25)
+        yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short['75%'], input_abatement_cost_long['75%'], 25) 
+    
+    # For SAF, the minimum value is the 25th percentile of results for low CO2 prices and the maximum value is the 75th percentile of results for high CO2 prices.
+    elif tech == "SAF":
+        yearly_abatement_cost = pd.DataFrame()
+        yearly_abatement_cost['50%'] = np.linspace(input_abatement_cost_short['50%'], input_abatement_cost_long['50%'], 25)
+        yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short_low['25%'], input_abatement_cost_long_low['25%'], 25)
+        yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short_high['75%'], input_abatement_cost_long_high['75%'], 25)
+
+    # Only activated for SAF, residual emissions are abated using DACCS.
     if return_residual_emissions:
         residual_emissions = input_abatement_cost.loc[:,["Residual Emissions (gCO2eq/L fuel)", "Year of Cost"]]
 
@@ -502,7 +536,6 @@ def calculate_total_abatement_cost_saf_non_co2 (total_abatement_cost_saf, gwp, g
         "GWP_star": abatement_cost_saf_per_ton_gwp_star
     }
 
-
     return abatement_costs_saf
 
 def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_star):
@@ -530,8 +563,10 @@ def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_s
     non_co2_emissions_to_abate_gwp_star = (gwp_star.loc["GWP* BAU", "Total"] - gwp_star.loc["GWP* DACCU", "Total"] - total_abatement_daccs) * 10**6
     ratio_gwp_star = non_co2_emissions_to_abate_gwp_star / (total_abatement_daccs * 10**6)
 
-    # Calculate abatement cost per ton of CO2 eq. for each GWP metric
     abatement_cost_per_ton_co2_2050 = abatement_curve_daccs.iloc[-1] # in $/T CO2
+
+    # Calculate abatement cost per ton of CO2 eq. for each GWP metric. This is done by multiplying the abatement cost of CO2 emissions in 2050 by the ratio of non-CO2 emissions to CO2 emissions abated.
+    # Rationale: Extra deployment of DACCS is required to abate equivalent emissions from non-CO2 species.
     abatement_cost_daccs_per_ton_gwp_100 = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_100)
     abatement_cost_daccs_per_ton_gwp_20 = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_20)
     abatement_cost_daccs_per_ton_gwp_star = abatement_cost_per_ton_co2_2050 * (1+ ratio_gwp_star)
