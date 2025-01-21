@@ -93,11 +93,16 @@ def load_input_abatement_cost(file_path, tech):
         yearly_abatement_cost['25%'] = np.linspace(input_abatement_cost_short_low['25%'], input_abatement_cost_long_low['25%'], 25)
         yearly_abatement_cost['75%'] = np.linspace(input_abatement_cost_short_high['75%'], input_abatement_cost_long_high['75%'], 25)
 
+    yearly_abatement_cost.to_excel(f"outputs/abatement_cost_curve_{tech}.xlsx")
+
     # Only activated for SAF, residual emissions are abated using DACCS.
     if return_residual_emissions:
         residual_emissions = input_abatement_cost.loc[:,["Residual Emissions (gCO2eq/L fuel)", "Year of Cost"]]
 
         return yearly_abatement_cost, residual_emissions
+    
+    
+    
 
     return yearly_abatement_cost
 
