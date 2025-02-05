@@ -1,5 +1,8 @@
 import functions
+import numpy as np
 import pandas as pd
+from uncertainties import unumpy, ufloat
+
 
 #---------------- Scenario Descriptions ----------------#
 # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
@@ -20,12 +23,15 @@ ANNUAL_DEMAND_GROWTH_RATE = 0.02
 ANNUAL_EFFICIENCY_CHANGE = 0.01
 MJ_PER_L = 34.69 # Standard volumetric energy density of SAF
 DT = 20 # Years for GWP* calculation
-# DACCU factors are obtained from Brazzola et. al. 2024
+SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [1e14, 1e15] # Current average estimate of ice particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0). The list is lower and upper bound of the estimate.
+ICE_PARTICLE_ESTIMATE_PER_KM_2025 = [[2e13,1.5e14], [1e14,1e15]] # Current average estimate of ice particles per km from Karcher (2018) Fig. 3. The lists are the lower and upper bound of the estimate for the two curves.
+SAF_SOOT_PARTICLE_REDUCTION = 0.475 # 47.5% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
+# DACCU factors are obtained from Brazzola et. al. 2024 or calculated using Voigt 2024, Karcher 2018 and Lee et. al. 2023
 # These are multipliers for the level of emissions from DACCU fuelled aircraft.
 DACCU_FACTORS = { 
     'CO2': 0, 
     'netNOx': 0.9,
-    'Contrail Cirrus and C-C': 0.55
+    'Contrail Cirrus and C-C': 0 # Calculated in the simulation
 }
 
 # ERF factors are obtained from Lee et. al. 2021
@@ -54,6 +60,34 @@ df_demand = functions.generate_aviation_demand(
     ANNUAL_EFFICIENCY_CHANGE, 
     N_YEARS
 )
+
+#---------------- Generate Estimated decrease in CC ----------------#
+efficiency_improvement = ((1-ANNUAL_EFFICIENCY_CHANGE) ** N_YEARS)
+SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = np.array(SOOT_PARTICLE_ESTIMATE_PER_KM_2025)
+ICE_PARTICLE_ESTIMATE_PER_KM_2025 = [functions.get_nucleated_ice_crystals(p_count,plot=True) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2025]
+
+# Future emissions accounting for efficiency improvements
+SOOT_PARTICLE_ESTIMATE_PER_KM_2050 = SOOT_PARTICLE_ESTIMATE_PER_KM_2025 * efficiency_improvement
+ICE_PARTICLE_ESTIMATE_PER_KM_2050 = [functions.get_nucleated_ice_crystals(p_count,plot=True) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2050]
+ICE_PARTICLE_ESTIMATE_PER_KM_2050 = np.array(ICE_PARTICLE_ESTIMATE_PER_KM_2050)
+
+# Future soot particles and nucleated ice particles from SAF fuelled aircraft
+future_soot_particles_daccu = SOOT_PARTICLE_ESTIMATE_PER_KM_2050 * (1-SAF_SOOT_PARTICLE_REDUCTION) # Markl 2024
+future_nucleated_ice_particles_daccu = [functions.get_nucleated_ice_crystals(p_count,plot=True) for p_count in future_soot_particles_daccu]
+future_nucleated_ice_particles_daccu = np.array(future_nucleated_ice_particles_daccu)
+
+# Account for efficiency improvements
+#future_nucleated_ice_particles_daccu = future_nucleated_ice_particles_daccu * efficiency_improvement
+normalised_nucleated_ice_particles_daccu = future_nucleated_ice_particles_daccu / ICE_PARTICLE_ESTIMATE_PER_KM_2050
+
+# Normalized RF Factor for Contrails:
+vectorized_calculate_normalised_rf = np.vectorize(functions.calculate_normalised_rf)
+daccu_factors = vectorized_calculate_normalised_rf(normalised_nucleated_ice_particles_daccu)
+nominal_daccu_factor = np.mean(daccu_factors)
+std_daccu_factor = np.std(daccu_factors)
+daccu_factor = ufloat(nominal_daccu_factor, std_daccu_factor)
+
+DACCU_FACTORS["Contrail Cirrus and C-C"] = daccu_factor
 
 #--------------- Generate CO2 Emissions based on demand ---------------# 
 # Future emissions from aviation in BAU scenario

@@ -5,6 +5,9 @@ import xlsxwriter
 from uncertainties import unumpy, ufloat
 from fair.forward import fair_scm
 from fair.inverse import inverse_fair_scm
+from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
 
 def load_input_abatement_cost(file_path, tech):
 
@@ -231,7 +234,7 @@ def generate_equivalence_gwp(demand_df, base_inputs, year, DACCU_FACTORS, ANNUAL
     dist_net_year = demand_df.loc[year, 'DEMAND_M_KM'] # Total distance covered in 2050 in million kms
     co2_net_year = co2_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # CO2 emissions in 2050 in Mt corrected for demand and efficiency changes
     nox_net_year = nox_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # NOx emissions in 2050 in Mt corrected for demand and efficiency changes
-    contrail_cc_dist_year = contrail_cc_dist_2018 * (dist_net_year / dist_net_2018) # Contrail Cirrus and C-C distance in km in 2050 corrected for demand. Efficiency changes do not affect Contrail Cirrus and C-C cloud formation.
+    contrail_cc_dist_year = contrail_cc_dist_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS) # Contrail Cirrus and C-C distance in km in 2050 corrected for demand and efficiency changes
 
     # Formulae below are adopted from the code for Brazzola et. al. 2022 (https://doi.org/10.1038/s41558-022-01404-7)
     
@@ -584,6 +587,143 @@ def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_s
 
     return abatement_costs_daccs
 
+import numpy as np
+from scipy.interpolate import interp1d
+
+def get_nucleated_ice_crystals(emitted_soot_particles, curve='both', plot=False):
+    """
+    Calculate nucleated ice crystal number for a given emitted soot particle number.
+    
+    Parameters:
+    emitted_soot_particles (float or array): Number of emitted soot particles per kg fuel
+    curve (str): Which curve to calculate - 'upper', 'lower', or 'both' (default)
+    plot (bool): Whether to generate a plot of the curves and interpolated points
+    
+    Returns:
+    float or tuple: Nucleated ice crystal number(s) per kg fuel
+    """
+    # Construct x points for the curve
+    x = np.logspace(12, 16, 1000)
+    
+    # Initialize arrays
+    y1 = np.zeros_like(x, dtype=float)
+    y2 = np.zeros_like(x, dtype=float)
+    
+    # Upper curve calculations
+    mask1 = x < 7e13
+    mask2 = (x >= 7e13) & (x <= 1e15)
+    mask3 = x > 1e15
+    
+    # Linear decline in log space (initial segment)
+    log_slope = (np.log10(1e14) - np.log10(1e15)) / (np.log10(7e13) - np.log10(1e12))
+    y1[mask1] = 10**(np.log10(1e15) + log_slope * (np.log10(x[mask1]) - np.log10(1e12)))
+    
+    # Steeper upward trajectory to reach 1e15 at x=1e15
+    start_y = 10**(np.log10(1e15) + log_slope * (np.log10(7e13) - np.log10(1e12)))
+    exponent = np.log10(1e15/start_y) / np.log10(1e15/7e13)
+    y1[mask2] = start_y * (x[mask2]/7e13)**exponent
+    
+    # Continue same slope after 1e15
+    y1[mask3] = 1e15 * (x[mask3]/1e15)**exponent
+    
+    # Lower curve calculations with gradual rise
+    mask_lower1 = x < 1e14
+    mask_lower2 = (x >= 1e14) & (x <= 1e15)
+    mask_lower3 = x > 1e15
+    
+    def smooth_rising_curve(x_val):
+        # Transform to [0,1] range for x values between 1e12 and 1e14
+        t = (np.log10(x_val) - 12) / (14 - 12)
+        
+        # Define start and end points in log space
+        log_start = np.log10(5e12)
+        log_end = np.log10(2.5e13)
+        log_range = log_end - log_start
+        
+        # Create a more gradual exponential curve
+        # Use power function with small exponent for gradual increase
+        power = 2.5  # Controls the overall shape of the curve
+        curve_factor = t**power
+        
+        # Add small offset to ensure initial flatness
+        offset = 0.05
+        adjusted_factor = (curve_factor + offset) / (1 + offset)
+        
+        # Calculate final value
+        log_y = log_start + log_range * adjusted_factor
+        
+        return 10**log_y
+    
+    y2[mask_lower1] = smooth_rising_curve(x[mask_lower1])
+    
+    # Reduced slope after 10^14 (80% of upper curve slope)
+    lower_exponent = exponent * 0.8
+    y2[mask_lower2] = 2.5e13 * (x[mask_lower2]/1e14)**lower_exponent
+    
+    # Continue same reduced slope after 1e15
+    y2_at_1e15 = 2.5e13 * (1e15/1e14)**lower_exponent
+    y2[mask_lower3] = y2_at_1e15 * (x[mask_lower3]/1e15)**lower_exponent
+    
+    # Create interpolation functions for both curves
+    f1 = interp1d(x, y1, kind='linear', fill_value='extrapolate')
+    f2 = interp1d(x, y2, kind='linear', fill_value='extrapolate')
+    
+    # Calculate interpolated values for the input x
+    y1_interp = f1(emitted_soot_particles)
+    y2_interp = f2(emitted_soot_particles)
+    
+    if plot:
+        plt.figure(figsize=(10, 6))
+        plt.loglog(x, y1, 'b-', label='Upper curve')
+        plt.loglog(x, y2, 'g-', label='Lower curve')
+        
+        # Plot interpolated points
+        plt.plot(emitted_soot_particles, y1_interp, 'bo', label='Upper interpolated')
+        plt.plot(emitted_soot_particles, y2_interp, 'go', label='Lower interpolated')
+        
+        plt.grid(True, which="both", ls="-", alpha=0.2)
+        plt.xlabel('Emitted Soot Particles')
+        plt.ylabel('Nucleated Ice Crystals')
+        plt.title('Ice Crystal Nucleation Curves')
+        plt.legend()
+        plt.show()
+    
+    # Return results based on requested curve
+    if curve.lower() == 'upper':
+        return y1_interp
+    elif curve.lower() == 'lower':
+        return y2_interp
+    else:  # both
+        return np.array([y2_interp, y1_interp])
+
+
+# Define polynomial function for fitting Fig 19 of DS Lee 2023 et. al.
+def poly_func(x, a, b, c):
+    return a*x**2 + b*x + c
+
+def calculate_normalised_rf (normalized_ice_particle_number) :
+
+    if normalized_ice_particle_number > 1.0:
+        return 1.0 # Normalized RF is 1 for values greater than 1 as no data is available for values greater than 1
+
+    x = np.array([0.1, 0.2, 0.5, 1.0]) # From Fig. 19 of DS Lee 2023 et. al. (https://pubs.rsc.org/en/content/articlehtml/2023/ea/d3ea00091e)
+    y = np.array([0.3, 0.5, 0.8, 1.0]) # From Fig. 19 of DS Lee 2023 et. al.
+
+    # Fit curve to 4 data points, using a 2nd degree polynomial
+    popt, _ = curve_fit(poly_func, x, y)
+
+    # Generate x values for smooth curve
+    x_smooth = np.linspace(0.1, 1.0, 100)
+
+    # Generate y values for smooth curve
+    y_smooth = poly_func(x_smooth, *popt)
+    
+
+    # Perform interpolation with the normalized
+    normalized_rf = np.interp(normalized_ice_particle_number, x_smooth, y_smooth)
+
+
+    return normalized_rf
 
 
 
