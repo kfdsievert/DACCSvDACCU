@@ -187,7 +187,7 @@ def generate_aviation_demand(df_input, DEMAND_GROWTH_RATE, ANNUAL_EFFICIENCY_CHA
     return df_output
 
 
-def generate_equivalence_gwp(demand_df, base_inputs, year, SAF_FACTORS, ANNUAL_EFFICIENCY_CHANGE, N_YEARS,metric="GWP100"): 
+def generate_equivalence_gwp(demand_df, base_inputs, year, emission_factors, ANNUAL_EFFICIENCY_CHANGE, N_YEARS, CONTRAIL_AVOIDANCE, REROUTING_FUEL_PENALTY, metric="GWP100"): 
 
     """
     Calculates Equivalent CO2 emissions from GWP metrics as in Lee et. al. 2021
@@ -196,7 +196,7 @@ def generate_equivalence_gwp(demand_df, base_inputs, year, SAF_FACTORS, ANNUAL_E
     - demand_df: DataFrame with projected aviation demand
     - base_inputs: DataFrame with base inputs for progression curve of SAF from Brazzola et. al. 2024
     - year: Year for which GWP values are to be calculated
-    - SAF_FACTORS: Dictionary with multipliers for SAF emissions addopted from Brazzola et. al. 2024
+    - emission_factors: Dictionary with multipliers for emissions addopted from Brazzola et. al. 2024 or calculated directly
     - ANNUAL_EFFICIENCY_CHANGE: Annual efficiency improvement rate
     - N_YEARS: Number of years to project
     - metric: GWP metric to use. Default is GWP100
@@ -231,27 +231,27 @@ def generate_equivalence_gwp(demand_df, base_inputs, year, SAF_FACTORS, ANNUAL_E
     nox_net_2018 = 1.43 # Tg N in 2018 from Lee et. al. 2021
     contrail_cc_dist_2018 = 6.13 * 10**10 # Contrail Cirrus and C-C cloud km in 2018 from Lee et. al. 2021
 
-    dist_net_year = demand_df.loc[year, 'DEMAND_M_KM'] # Total distance covered in 2050 in million kms
-    co2_net_year = co2_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # CO2 emissions in 2050 in Mt corrected for demand and efficiency changes
-    nox_net_year = nox_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # NOx emissions in 2050 in Mt corrected for demand and efficiency changes
-    contrail_cc_dist_year = contrail_cc_dist_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS) # Contrail Cirrus and C-C distance in km in 2050 corrected for demand and efficiency changes
+    dist_net_year = demand_df.loc[year, 'DEMAND_M_KM']# Total distance covered in given year in million kms 
+    co2_net_year = co2_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # CO2 emissions in given year in Mt corrected for demand and efficiency changes
+    nox_net_year = nox_net_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE)**(N_YEARS) # NOx emissions in given year in Mt corrected for demand and efficiency changes
+    contrail_cc_dist_year = contrail_cc_dist_2018 * (dist_net_year / dist_net_2018) * (1-ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS) # Contrail Cirrus and C-C distance in km in given year corrected for demand and efficiency changes
 
     # Formulae below are adopted from the code for Brazzola et. al. 2022 (https://doi.org/10.1038/s41558-022-01404-7)
     
     # BAU scenario
-    co2_equiv_bau = co2_net_year * GWP_metrics[metric]["CO2"]
-    nox_equiv_bau = nox_net_year * GWP_metrics[metric]["netNOx"]
-    contrail_cc_equiv_bau = (contrail_cc_dist_year / 10**9) * GWP_metrics[metric]["Contrail Cirrus and C-C"]
+    co2_equiv_bau = co2_net_year * GWP_metrics[metric]["CO2"] * (1 + REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["Fossil"]) # Add fuel penalty for rerouting if contrail avoidance is applied
+    nox_equiv_bau = nox_net_year * GWP_metrics[metric]["netNOx"] * (1 + REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["Fossil"]) # Add fuel penalty for rerouting if contrail avoidance is applied
+    contrail_cc_equiv_bau = (contrail_cc_dist_year / 10**9) * GWP_metrics[metric]["Contrail Cirrus and C-C"] * emission_factors["Fossil"]['Contrail Cirrus and C-C']
 
     # SAF scenario Fossil component
-    co2_equiv_fossil = co2_equiv_bau * fossil_share_current
-    nox_equiv_fossil = nox_equiv_bau * fossil_share_current
+    co2_equiv_fossil = co2_net_year * GWP_metrics[metric]["CO2"] * (1+ REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["SAF"]) * fossil_share_current
+    nox_equiv_fossil = nox_net_year * GWP_metrics[metric]["netNOx"] * (1+ REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["SAF"]) * fossil_share_current
     contrail_cc_equiv_fossil = contrail_cc_equiv_bau * fossil_share_current
 
     # SAF scenario SAF component
-    co2_equiv_saf = co2_equiv_bau * saf_deployed_current * SAF_FACTORS["CO2"]
-    nox_equiv_saf = nox_equiv_bau * saf_deployed_current * SAF_FACTORS["netNOx"]
-    contrail_cc_equiv_saf = contrail_cc_equiv_bau * saf_deployed_current * SAF_FACTORS["Contrail Cirrus and C-C"]
+    co2_equiv_saf = co2_equiv_bau * saf_deployed_current * emission_factors["SAF"]["CO2"] * (1+ REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["SAF"]) # Add fuel penalty for rerouting if contrail avoidance is applied
+    nox_equiv_saf = nox_equiv_bau * saf_deployed_current * emission_factors["SAF"]["netNOx"] * (1+ REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["SAF"]) # Add fuel penalty for rerouting if contrail avoidance is applied
+    contrail_cc_equiv_saf = contrail_cc_equiv_bau * saf_deployed_current * (emission_factors["SAF"]["Contrail Cirrus and C-C"] / emission_factors["Fossil"]["Contrail Cirrus and C-C"])
 
     # Total CO2 equivalent emissions SAF scenario
     co2_equiv_total = co2_equiv_fossil + co2_equiv_saf
@@ -292,7 +292,7 @@ def make_CO2aviation_hist():
     E1, F1, T1 = inverse_fair_scm(C=CO2_C_1940_2018, rt=0)
     return E1, F1
 
-def future_aviation_emissions(base_inputs, ANNUAL_EFFICIENCY_CHANGE, DEMAND_GROWTH_RATE, scenario, SAF_FACTORS):
+def future_aviation_emissions(base_inputs, ANNUAL_EFFICIENCY_CHANGE, DEMAND_GROWTH_RATE, tech, emission_factors):
 
     """
     Function to generate future CO2 emissions from aviation
@@ -319,21 +319,21 @@ def future_aviation_emissions(base_inputs, ANNUAL_EFFICIENCY_CHANGE, DEMAND_GROW
     saf_share = base_inputs['PROGRESSION_CURVE'].loc["2018":str(2018+n_years)]
     fossil_share = 1 - saf_share
 
-    if scenario == "BAU":
+    if tech == "Fossil":
         co2_emissions = co2_net_2018 * demand_growth_vector * efficiency_growth_vector
         nox_emissions = nox_net_2018 * demand_growth_vector * efficiency_growth_vector
         bc_emissions = bc_net_2018 * demand_growth_vector * efficiency_growth_vector
         so2_emissions = so2_net_2018 * demand_growth_vector * efficiency_growth_vector
         h2o_emissions = h2o_net_2018 * demand_growth_vector * efficiency_growth_vector
-        contrail_emissions = contrail_net_2018 * demand_growth_vector * efficiency_growth_vector
+        contrail_emissions = contrail_net_2018 * demand_growth_vector * efficiency_growth_vector * emission_factors["Fossil"]['Contrail Cirrus and C-C']
 
-    elif scenario == "SAF":
-        co2_emissions = co2_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * SAF_FACTORS['CO2'])
-        nox_emissions = nox_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * SAF_FACTORS['netNOx'])
-        contrail_emissions = contrail_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * SAF_FACTORS['Contrail Cirrus and C-C'])
+    elif tech == "SAF":
+        co2_emissions = co2_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * emission_factors["SAF"]['CO2'])
+        nox_emissions = nox_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * emission_factors["SAF"]['netNOx'])
         bc_emissions = bc_net_2018 * demand_growth_vector * efficiency_growth_vector
         so2_emissions = so2_net_2018 * demand_growth_vector * efficiency_growth_vector
         h2o_emissions = h2o_net_2018 * demand_growth_vector * efficiency_growth_vector
+        contrail_emissions = contrail_net_2018 * demand_growth_vector * efficiency_growth_vector * (fossil_share + saf_share * emission_factors["SAF"]['Contrail Cirrus and C-C'])
 
 
 
@@ -395,7 +395,7 @@ def calculate_ERF(df, e_factors):
     return ERF_df
 
 
-def generate_equivalence_gwp_star(erf_df_fossil, erf_df_saf, base_inputs, year, SAF_FACTORS, dt):
+def generate_equivalence_gwp_star(erf_df_fossil, erf_df_saf, base_inputs, year, emission_factors, dt):
 
     """
     Generate GWP100* values for NOx and C-C based on ERF values.
@@ -404,7 +404,7 @@ def generate_equivalence_gwp_star(erf_df_fossil, erf_df_saf, base_inputs, year, 
     - erf_df: DataFrame with projected ERF values for NOx and C-C
     - base_inputs: DataFrame with base inputs for progression curve of SAF from Brazzola et. al. 2024
     - year: Year for which GWP* values are to be calculated
-    - SAF_FACTORS: Dictionary with multipliers for SAF emissions addopted from Brazzola et. al. 2024
+    - emission_factors: Dictionary with multipliers for SAF emissions addopted from Brazzola et. al. 2024
     - dt: Time span between emission pulses in GWP*. Default is 20 years.
 
     Returns:
@@ -427,12 +427,12 @@ def generate_equivalence_gwp_star(erf_df_fossil, erf_df_saf, base_inputs, year, 
     cc_erf_past_bau = erf_df_fossil.loc[year-dt, 'Contrail Cirrus and C-C']
 
     # ERF values for SAF scenario - Current year
-    nox_erf_current_saf = erf_df_saf.loc[year, 'netNOx'] * SAF_FACTORS['netNOx']
-    cc_erf_current_saf = erf_df_saf.loc[year, 'Contrail Cirrus and C-C'] * SAF_FACTORS['Contrail Cirrus and C-C']
+    nox_erf_current_saf = erf_df_saf.loc[year, 'netNOx'] * emission_factors['netNOx']
+    cc_erf_current_saf = erf_df_saf.loc[year, 'Contrail Cirrus and C-C'] * emission_factors['Contrail Cirrus and C-C']
 
     # ERF values for SAF scenario - "DT" years ago.
-    nox_erf_past_saf = erf_df_saf.loc[year-dt, 'netNOx'] * SAF_FACTORS['netNOx']
-    cc_erf_past_saf = erf_df_saf.loc[year-dt, 'Contrail Cirrus and C-C'] * SAF_FACTORS['Contrail Cirrus and C-C']
+    nox_erf_past_saf = erf_df_saf.loc[year-dt, 'netNOx'] * emission_factors['netNOx']
+    cc_erf_past_saf = erf_df_saf.loc[year-dt, 'Contrail Cirrus and C-C'] * emission_factors['Contrail Cirrus and C-C']
 
 
 
@@ -546,7 +546,7 @@ def calculate_total_abatement_cost_saf_non_co2 (total_abatement_cost_saf, gwp, g
 
     return abatement_costs_saf
 
-def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_star):
+def calculate_total_abatement_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_star):
     
     """Function to calculate the abatement cost of DACCS when non-CO2 effects are included
 
@@ -562,7 +562,7 @@ def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_s
     # Calculate total cost of abatement of CO2 emissions using DACCS in 2050 (same for all scenarios)
     total_abatement_daccs = gwp.loc["GWP100 BAU", "CO2"] # Same for all scenarios, in MT CO2
 
-    non_co2_emissions_to_abate_gwp_100 = (gwp.loc["GWP100 BAU", "Total"] - gwp.loc["GWP100 SAF", "Total"] - total_abatement_daccs) * 10**6# in T of CO2 eq.
+    non_co2_emissions_to_abate_gwp_100 = (gwp.loc["GWP100 BAU", "Total"] - gwp.loc["GWP100 SAF", "Total"] - total_abatement_daccs) * 10**6 # in T of CO2 eq.
     ratio_gwp_100 = non_co2_emissions_to_abate_gwp_100 / (total_abatement_daccs * 10**6) # Ratio of non-CO2 emissions to CO2 emissions abated
 
     non_co2_emissions_to_abate_gwp_20 = (gwp.loc["GWP20 BAU", "Total"] - gwp.loc["GWP20 SAF", "Total"] - total_abatement_daccs) * 10**6
@@ -590,7 +590,7 @@ def calculate_total_abatemnet_cost_dac_non_co2 (abatement_curve_daccs, gwp,gwp_s
 import numpy as np
 from scipy.interpolate import interp1d
 
-def get_nucleated_ice_crystals(emitted_soot_particles, curve='both', plot=False):
+def get_nucleated_ice_crystals(emitted_soot_particles, curve='both', plot=False, tech='SAF', year=2050):
 
     """
     Calculate nucleated ice crystal number for a given emitted soot particle number.
@@ -683,9 +683,9 @@ def get_nucleated_ice_crystals(emitted_soot_particles, curve='both', plot=False)
         plt.plot(emitted_soot_particles, y2_interp, 'go', label='Lower interpolated')
         
         plt.grid(True, which="both", ls="-", alpha=0.2)
-        plt.xlabel('Emitted Soot Particles')
-        plt.ylabel('Nucleated Ice Crystals')
-        plt.title('Ice Crystal Nucleation Curves')
+        plt.xlabel('Emitted Soot Particle number per kg of fuel')
+        plt.ylabel('Nucleated Ice Crystal number per kg of fuel')
+        plt.title(f'Ice Crystal Nucleation Curves for {tech}-fuelled aircraft in {year}')
         plt.legend()
         plt.show()
     
@@ -726,7 +726,7 @@ def calculate_normalised_rf (normalized_ice_particle_number) :
 
     return normalized_rf
 
-def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ESTIMATE_PER_KM_2025, SAF_SOOT_PARTICLE_REDUCTION, show_plots = False, tech="SAF"): 
+def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ESTIMATE_PER_KM_2025, SAF_SOOT_PARTICLE_REDUCTION, CONTRAIL_AVOIDANCE, CONTRAIL_REDUCTION, show_plots = False, tech="SAF"): 
 
     """
 
@@ -735,8 +735,6 @@ def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ES
     The references used for this are: Karcher (2018) and Markl et. al. (2024) 
 
     Params:
-    - SAF_FACTORS: Dictionary with multipliers for SAF emissions adopted from Brazzola et. al. 2024
-    - FOSSIL_FACTORS: Dictionary with multipliers for fossil emissions, initially set to 1 as the baseline.
     - N_YEARS: Number of years for which the emissions are to be calculated
     - ANNUAL_EFFICIENCY_CHANGE: Annual efficiency change for aviation
     - SOOT_PARTICLE_ESTIMATE_PER_KM_2025: Estimate of soot particles emitted per km of distance flown in 2025
@@ -745,8 +743,7 @@ def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ES
     - tech: Technology for which the emissions are to be calculated. Default is SAF.
 
     Returns:
-    - Updated SAF_FACTORS dictionary with new multipliers for Contrail Cirrus and C-C emissions
-    - Updated FOSSIL_FACTORS dictionary with new multipliers for Contrail Cirrus and C-C emissions
+    - Updated contrail factor for the given technology
 
     """
 
@@ -754,11 +751,11 @@ def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ES
 
     SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = np.array(SOOT_PARTICLE_ESTIMATE_PER_KM_2025)
     # Estimate Ice particles in 2025 based on soot particles emitted per km of distance flown and Karcher (2018) Fig 3
-    ICE_PARTICLE_ESTIMATE_PER_KM_2025 = [get_nucleated_ice_crystals(p_count,plot=show_plots) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2025]
+    ICE_PARTICLE_ESTIMATE_PER_KM_2025 = [get_nucleated_ice_crystals(p_count,plot=show_plots, tech="Fossil", year=2025) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2025]
 
     # New soot particle count for 2050 based on efficiency improvement in burn,
     SOOT_PARTICLE_ESTIMATE_PER_KM_2050 = SOOT_PARTICLE_ESTIMATE_PER_KM_2025 * efficiency_improvement_factor
-    ICE_PARTICLE_ESTIMATE_PER_KM_2050 = [get_nucleated_ice_crystals(p_count,plot=show_plots) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2050]
+    ICE_PARTICLE_ESTIMATE_PER_KM_2050 = [get_nucleated_ice_crystals(p_count,plot=show_plots, tech="Fossil", year=2050) for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2050]
     ICE_PARTICLE_ESTIMATE_PER_KM_2050 = np.array(ICE_PARTICLE_ESTIMATE_PER_KM_2050)
 
     if tech == "SAF":
@@ -768,7 +765,7 @@ def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ES
         future_soot_particles = SOOT_PARTICLE_ESTIMATE_PER_KM_2050
 
 
-    future_nucleated_ice_particles = [get_nucleated_ice_crystals(p_count,plot=show_plots) for p_count in future_soot_particles]
+    future_nucleated_ice_particles = [get_nucleated_ice_crystals(p_count,plot=show_plots, tech="SAF", year = 2050) for p_count in future_soot_particles]
     future_nucleated_ice_particles = np.array(future_nucleated_ice_particles)
 
 
@@ -776,11 +773,55 @@ def update_emission_factors (N_YEARS, ANNUAL_EFFICIENCY_CHANGE, SOOT_PARTICLE_ES
 
     vectorized_calculate_normalised_rf = np.vectorize(calculate_normalised_rf)
     rf_factors = vectorized_calculate_normalised_rf(normalised_nucleated_ice_particles)
+
+    if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
+        rf_factors = rf_factors  - CONTRAIL_REDUCTION
+    
+    if CONTRAIL_AVOIDANCE["Fossil"] and tech == "Fossil":
+        rf_factors = rf_factors  - CONTRAIL_REDUCTION
+    
     nominal_rf_factor = np.median(rf_factors)
     std_rf_factor = np.std(rf_factors)
     new_contrail_factor = ufloat(nominal_rf_factor, std_rf_factor)
 
     return new_contrail_factor
+
+def calculate_additional_fuel_cost (demand_df, REROUTING_FUEL_PENALTY, FUEL_PRICE_2050, MJ_PER_L):
+    """ 
+    Function to calculate additional fuel cost due to rerouting for contrail management
+
+    Params:
+    - demand_df: DataFrame with projected aviation demand
+    - REROUTING_FUEL_PENALTY: Additional fuel consumption (%) due to rerouting
+    - FUEL_PRICE: Fuel price in $/L (2050)
+
+    Returns:
+    - Additional fuel cost due to rerouting in 2050 ($)
+    """
+
+    fuel_demand_2050 = demand_df.loc[2050, "DEMAND_EJ"] # in EJ
+
+    additional_fuel_consumption_2050_ej = fuel_demand_2050 * REROUTING_FUEL_PENALTY # in EJ
+    additional_fuel_consumption_2050_mj = additional_fuel_consumption_2050_ej * 10**12 # in MJ
+    additional_fuel_consumption_2050_l = additional_fuel_consumption_2050_mj / MJ_PER_L # in L
+
+    additional_fuel_cost = additional_fuel_consumption_2050_l * FUEL_PRICE_2050 # in $
+
+    return additional_fuel_cost
+
+def calculate_additional_abatement_cost_contrail_avoidance(df_demand,gwp, gwp_baseline, CONTRAIL_AVOIDANCE_CAPEX, REROUTING_FUEL_PENALTY, FUEL_PRICE_2050, MJ_PER_L):
+
+    abated_emissions_contrail_avoidance = gwp_baseline - gwp # Avoided emissions by using contrail avoidance
+
+    fuel_cost_additional = calculate_additional_fuel_cost(df_demand, REROUTING_FUEL_PENALTY, FUEL_PRICE_2050, MJ_PER_L)
+
+    additional_abatement_cost = CONTRAIL_AVOIDANCE_CAPEX + fuel_cost_additional
+
+    additional_abatement_cost_per_t = additional_abatement_cost / (abated_emissions_contrail_avoidance ["Total"] * 10**6)
+
+    return additional_abatement_cost_per_t
+    
+
 
 
 
