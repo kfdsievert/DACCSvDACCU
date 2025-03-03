@@ -1,12 +1,15 @@
 import pandas as pd
 import numpy as np
 import xlsxwriter
-from uncertainties import unumpy, ufloat
+from uncertainties import unumpy, ufloat, nominal_value
 from fair.forward import fair_scm
 from fair.inverse import inverse_fair_scm
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import copy
+global EUR_USD
+EUR_USD = 1.12 # 1 EUR = 1.12 USD, FRED (2024)
 
 
 def load_input_abatement_cost(file_path, tech):
@@ -254,7 +257,7 @@ def generate_equivalence_gwp(
     - metric: GWP metric to use. Default is GWP100
 
     Returns:
-    - DataFrame with equivalent CO2 emissions for each GWP metric for net NOx, CO2, and Contrail Cirrus and C-C cloud formation in BAU and SAF scenarios.
+    - DataFrame with equivalent CO2 emissions equivalent in Mt CO2 (Tg CO2) for each GWP metric for net NOx, CO2, and Contrail Cirrus and C-C cloud formation in BAU and SAF scenarios.
 
     """
 
@@ -264,17 +267,17 @@ def generate_equivalence_gwp(
             "CO2": 1,
             "netNOx": 114,
             "Contrail Cirrus and C-C": 11,  # km basis
-            "BC" : 1166,
-            "SO2" :  -226,
-            "H2O" : 0.06
+            "BC": 1166,
+            "SO2": -226,
+            "H2O": 0.06,
         },
         "GWP20": {
             "CO2": 1,
             "netNOx": 619,
             "Contrail Cirrus and C-C": 39,  # km basis
-            "BC" : 4288,
-            "SO2" :  -832,
-            "H2O" : 0.22
+            "BC": 4288,
+            "SO2": -832,
+            "H2O": 0.22,
         },
     }
 
@@ -308,7 +311,7 @@ def generate_equivalence_gwp(
         * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
     )  # NOx emissions in given year in Mt corrected for demand and efficiency changes
 
-    so_net_year = (
+    so2_net_year = (
         so2_net_2018
         * (dist_net_year / dist_net_2018)
         * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
@@ -325,7 +328,7 @@ def generate_equivalence_gwp(
         * (dist_net_year / dist_net_2018)
         * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
     )  # H2O emissions in given year in Mt corrected for demand and efficiency changes
-    
+
     contrail_cc_dist_year = (
         contrail_cc_dist_2018
         * (dist_net_year / dist_net_2018)
@@ -352,7 +355,7 @@ def generate_equivalence_gwp(
     )
 
     so2_equiv_bau = (
-        so_net_year
+        so2_net_year
         * GWP_metrics[metric]["SO2"]
         * (1 + REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["Fossil"])
     )  # Add fuel penalty for rerouting if contrail avoidance is applied
@@ -369,7 +372,6 @@ def generate_equivalence_gwp(
         * (1 + REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["Fossil"])
     )  # Add fuel penalty for rerouting if contrail avoidance is applied
 
-
     # SAF scenario Fossil component
     co2_equiv_fossil = (
         co2_net_year
@@ -385,7 +387,7 @@ def generate_equivalence_gwp(
     )
 
     so2_equiv_fossil = (
-        so_net_year
+        so2_net_year
         * GWP_metrics[metric]["SO2"]
         * (1 + REROUTING_FUEL_PENALTY * CONTRAIL_AVOIDANCE["SAF"])
         * fossil_share_current
@@ -754,14 +756,23 @@ def generate_equivalence_gwp_star(
 
     # ERF values for BAU scenario - Current year
     nox_erf_current_bau = erf_df_fossil.loc[year, "netNOx"]
+    so2_erf_current_bau = erf_df_fossil.loc[year, "SO4"]
+    bc_erf_current_bau = erf_df_fossil.loc[year, "BC"]
+    h2o_erf_current_bau = erf_df_fossil.loc[year, "H2O"]
     cc_erf_current_bau = erf_df_fossil.loc[year, "Contrail Cirrus and C-C"]
 
     # ERF values for BAU scenario - "DT" years ago.
     nox_erf_past_bau = erf_df_fossil.loc[year - dt, "netNOx"]
+    so2_erf_past_bau = erf_df_fossil.loc[year - dt, "SO4"]
+    bc_erf_past_bau = erf_df_fossil.loc[year - dt, "BC"]
+    h2o_erf_past_bau = erf_df_fossil.loc[year - dt, "H2O"]
     cc_erf_past_bau = erf_df_fossil.loc[year - dt, "Contrail Cirrus and C-C"]
 
     # ERF values for SAF scenario - Current year
     nox_erf_current_saf = erf_df_saf.loc[year, "netNOx"] * emission_factors["netNOx"]
+    so2_erf_current_saf = erf_df_saf.loc[year, "SO4"] * emission_factors["SO2"]
+    bc_erf_current_saf = erf_df_saf.loc[year, "BC"] * emission_factors["BC"]
+    h2o_erf_current_saf = erf_df_saf.loc[year, "H2O"] * emission_factors["H2O"]
     cc_erf_current_saf = (
         erf_df_saf.loc[year, "Contrail Cirrus and C-C"]
         * emission_factors["Contrail Cirrus and C-C"]
@@ -769,6 +780,9 @@ def generate_equivalence_gwp_star(
 
     # ERF values for SAF scenario - "DT" years ago.
     nox_erf_past_saf = erf_df_saf.loc[year - dt, "netNOx"] * emission_factors["netNOx"]
+    so2_erf_past_saf = erf_df_saf.loc[year - dt, "SO4"] * emission_factors["SO2"]
+    bc_erf_past_saf = erf_df_saf.loc[year - dt, "BC"] * emission_factors["BC"]
+    h2o_erf_past_saf = erf_df_saf.loc[year - dt, "H2O"] * emission_factors["H2O"]
     cc_erf_past_saf = (
         erf_df_saf.loc[year - dt, "Contrail Cirrus and C-C"]
         * emission_factors["Contrail Cirrus and C-C"]
@@ -778,21 +792,41 @@ def generate_equivalence_gwp_star(
     nox_gwp_star_bau = ((nox_erf_current_bau - nox_erf_past_bau) / dt) * (
         H / AGWP_CO2
     )  # Formula for GWP* calculation adopted from Brazzola et. al. 2022
+    so2_gwp_star_bau = ((so2_erf_current_bau - so2_erf_past_bau) / dt) * (H / AGWP_CO2)
+    bc_gwp_star_bau = ((bc_erf_current_bau - bc_erf_past_bau) / dt) * (H / AGWP_CO2)
+    h2o_gwp_star_bau = ((h2o_erf_current_bau - h2o_erf_past_bau) / dt) * (H / AGWP_CO2)
     cc_gwp_star_bau = ((cc_erf_current_bau - cc_erf_past_bau) / dt) * (H / AGWP_CO2)
 
     # Calulate GWP* values in Tg CO2 eq. for NOx and Contrail Cirrus and C-C - SAF scenario
     nox_gwp_star_saf = ((nox_erf_current_saf - nox_erf_past_saf) / dt) * (
         H / AGWP_CO2
     )  # Formula for GWP* calculation adopted from Brazzola et. al. 2022
+    so2_gwp_star_saf = ((so2_erf_current_saf - so2_erf_past_saf) / dt) * (H / AGWP_CO2)
+    bc_gwp_star_saf = ((bc_erf_current_saf - bc_erf_past_saf) / dt) * (H / AGWP_CO2)
+    h2o_gwp_star_saf = ((h2o_erf_current_saf - h2o_erf_past_saf) / dt) * (H / AGWP_CO2)
     cc_gwp_star_saf = ((cc_erf_current_saf - cc_erf_past_saf) / dt) * (H / AGWP_CO2)
 
     gwp_star_saf_df = pd.DataFrame(
-        {"NOx": nox_gwp_star_saf, "Contrail Cirrus and C-C": cc_gwp_star_saf, "CO2": 0},
+        {
+            "NOx": nox_gwp_star_saf,
+            "SO2": so2_gwp_star_saf,
+            "BC": bc_gwp_star_saf,
+            "H2O": h2o_gwp_star_saf,
+            "Contrail Cirrus and C-C": cc_gwp_star_saf,
+            "CO2": 0,
+        },
         index=["GWP* SAF"],
     )
 
     gwp_star_bau_df = pd.DataFrame(
-        {"NOx": nox_gwp_star_bau, "Contrail Cirrus and C-C": cc_gwp_star_bau, "CO2": 0},
+        {
+            "NOx": nox_gwp_star_bau,
+            "SO2": so2_gwp_star_bau,
+            "BC": bc_gwp_star_bau,
+            "H2O": h2o_gwp_star_bau,
+            "Contrail Cirrus and C-C": cc_gwp_star_bau,
+            "CO2": 0,
+        },
         index=["GWP* BAU"],
     )
 
@@ -984,7 +1018,6 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
     return abatement_costs_daccs
 
 
-
 def get_nucleated_ice_crystals(
     emitted_soot_particles, curve="both", plot=False, tech="SAF", year=2050
 ):
@@ -1127,6 +1160,8 @@ def update_emission_factors(
     SAF_SOOT_PARTICLE_REDUCTION,
     CONTRAIL_AVOIDANCE,
     CONTRAIL_REDUCTION,
+    HYDROTREATMENT,
+    ht_emission_params,
     show_plots=False,
     tech="SAF",
 ):
@@ -1164,6 +1199,7 @@ def update_emission_factors(
     SOOT_PARTICLE_ESTIMATE_PER_KM_2050 = (
         SOOT_PARTICLE_ESTIMATE_PER_KM_2025 * efficiency_improvement_factor
     )
+
     ICE_PARTICLE_ESTIMATE_PER_KM_2050 = [
         get_nucleated_ice_crystals(p_count, plot=show_plots, tech="Fossil", year=2050)
         for p_count in SOOT_PARTICLE_ESTIMATE_PER_KM_2050
@@ -1175,8 +1211,24 @@ def update_emission_factors(
             1 - SAF_SOOT_PARTICLE_REDUCTION
         )  # Markl 2024
 
+        if HYDROTREATMENT["SAF"]:
+            future_soot_particles_ht = (
+                future_soot_particles / ht_emission_params["BC Grey"]
+            )
+
+        else:
+            future_soot_particles_ht = future_soot_particles
+
     elif tech == "Fossil":
         future_soot_particles = SOOT_PARTICLE_ESTIMATE_PER_KM_2050
+
+        if HYDROTREATMENT["Fossil"]:
+            future_soot_particles_ht = (
+                future_soot_particles / ht_emission_params["BC Grey"]
+            )
+
+        else:
+            future_soot_particles_ht = future_soot_particles
 
     future_nucleated_ice_particles = [
         get_nucleated_ice_crystals(p_count, plot=show_plots, tech="SAF", year=2050)
@@ -1184,12 +1236,27 @@ def update_emission_factors(
     ]
     future_nucleated_ice_particles = np.array(future_nucleated_ice_particles)
 
+    future_nucleated_ice_particles_ht = [
+        get_nucleated_ice_crystals(p_count, plot=False, tech="SAF", year=2050)
+        for p_count in future_soot_particles_ht
+    ]
+
+    future_nucleated_ice_particles_ht = np.array(future_nucleated_ice_particles_ht)
+
     normalised_nucleated_ice_particles = (
         future_nucleated_ice_particles / ICE_PARTICLE_ESTIMATE_PER_KM_2050
     )
 
+    normalised_nucleated_ice_particles_ht = (
+        future_nucleated_ice_particles_ht / ICE_PARTICLE_ESTIMATE_PER_KM_2050
+    )
+
     vectorized_calculate_normalised_rf = np.vectorize(calculate_normalised_rf)
     rf_factors = vectorized_calculate_normalised_rf(normalised_nucleated_ice_particles)
+    rf_factors_ht = vectorized_calculate_normalised_rf(
+        normalised_nucleated_ice_particles_ht
+    )
+    rf_factors_ht = np.min(rf_factors_ht)
 
     if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
         rf_factors = rf_factors - CONTRAIL_REDUCTION
@@ -1201,7 +1268,7 @@ def update_emission_factors(
     std_rf_factor = np.std(rf_factors)
     new_contrail_factor = ufloat(nominal_rf_factor, std_rf_factor)
 
-    return new_contrail_factor
+    return new_contrail_factor, rf_factors_ht
 
 
 def calculate_investment_contrail_avoidance(
@@ -1211,9 +1278,8 @@ def calculate_investment_contrail_avoidance(
     SENSOR_REQUIREMENT,
     INFRA_COST_MULTIPLIER,
     WACC,
-    HUMIDITY_SENSOR_LIFE
+    HUMIDITY_SENSOR_LIFE,
 ):
-    
     """
     Function to calculate yearly CAPEX for contrail avoidance when a certain percentage of aircraft are equipped with humidity sensors.
 
@@ -1225,7 +1291,7 @@ def calculate_investment_contrail_avoidance(
     - INFRA_COST_MULTIPLIER: Multiplier for infrastructure cost
     - WACC: Weighted average cost of capital
     - HUMIDITY_SENSOR_LIFE: Life of humidity sensor in years
-    
+
     Returns:
     - Yearly CAPEX for contrail avoidance in 2050 in $
 
@@ -1239,7 +1305,11 @@ def calculate_investment_contrail_avoidance(
     )
 
     # Amortize investment cost over the life of the humidity sensor to accurately reflect CAPEX per year.
-    amortised_sensor_cost = HUMIDITY_SENSOR_COST * (WACC * (1 + WACC)**HUMIDITY_SENSOR_LIFE) / ((1 + WACC)**HUMIDITY_SENSOR_LIFE - 1)
+    amortised_sensor_cost = (
+        HUMIDITY_SENSOR_COST
+        * (WACC * (1 + WACC) ** HUMIDITY_SENSOR_LIFE)
+        / ((1 + WACC) ** HUMIDITY_SENSOR_LIFE - 1)
+    )
 
     # Calculate contrail avoidance CAPEX per year
     contrail_avoidance_capex = (
@@ -1307,75 +1377,250 @@ def calculate_additional_abatement_cost_contrail_avoidance(
         abated_emissions_contrail_avoidance["Total"] * 10**6
     )
 
-    return additional_abatement_cost_per_t
+    return additional_abatement_cost_per_t, abated_emissions_contrail_avoidance
 
-def initialize_hydrotreatment_cost_params ():
 
-    """ Initialize parameters for hydrotreatment of jet fuel 
-    
+def initialize_hydrotreatment_cost_params():
+    """Initialize parameters for hydrotreatment of jet fuel
+
     Params:
     - None
 
     Returns:
     - Dictionary with parameters for hydrotreatment of jet fuel
-    
+
     """
 
-    h2_requirement = 42.7 # m3/ton of fuel
-    elec_requirement = 18.3 #kWh/ton of fuel
-    ng_price = 0.23 # €/m3 in 2050
-    elec_price = 0.05 # €/kWh in 2050
-    h2_price_kg = 3.2 # €/kg in 2050
-    h2_price_m3 = 0.29 # €/m3 in 2050
+    h2_requirement_green_h2 = 42.7  # m3/ton of fuel
+    elec_requirement_green_h2 = 18.3  # kWh/ton of fuel, reclaculated
+    ng_price = 0.23  # €/m3 in 2050
+    elec_price = 0.05  # €/kWh in 2050
+    h2_price_kg = 3.2  # €/kg in 2050
+    h2_price_m3 = 0.29  # €/m3 in 2050
 
     hydrotreatment_params = {
-        "h2_requirement": h2_requirement,
-        "elec_requirement": elec_requirement,
+        "h2_requirement": h2_requirement_green_h2,
+        "elec_requirement": elec_requirement_green_h2,
         "ng_price": ng_price,
         "elec_price": elec_price,
         "h2_price_kg": h2_price_kg,
-        "h2_price_m3": h2_price_m3
+        "h2_price_m3": h2_price_m3,
     }
 
     return hydrotreatment_params
 
+
 def initialize_hydrotreatment_emission_params():
+    # Baseline Emissions from Jet A-1
+    baseline_so2 = 0.2432  # g/l of fuel
+    baseline_co2_per_l = 2.59  # kg/l
+    baseline_bc = 0.024  # g/l of fuel
 
-    baseline_so2 = 0.2432 
-    ht_so2 = 0.0111
+    # Emissions from Hydrotreated SAF with grey hydrogen
+    ht_so2_grey = 0.0111  # g/l of fuel
+    ht_co2_per_l_grey = 2.68  # kg/l
+    ht_bc_grey = 0.021
 
-    ht_soot = 0.87
-    baseline_co2_per_l = 2.59
-                        
+    # Emissions from Hydrotreated SAF with green hydrogen
+    ht_so2_green = 0.0111
+    ht_co2_per_l_green = 2.6
+    ht_bc_green = 0.021
 
-def calculate_hydrotreatment_cost(demand_df, hydrotreatment_params, DENSITY_SAF, MJ_PER_L):
+    # Relative emissions for grey and green hydrogen
+    relative_so2_grey = baseline_so2 / ht_so2_grey
+    relative_co2_grey = baseline_co2_per_l / ht_co2_per_l_grey
+    relative_bc_grey = baseline_bc / ht_bc_grey
 
-    green_h2_cost = hydrotreatment_params["h2_price_m3"] *   hydrotreatment_params["h2_requirement"] # €/ton of fuel
+    relative_so2_green = baseline_so2 / ht_so2_green
+    relative_co2_green = baseline_co2_per_l / ht_co2_per_l_green
+    relative_bc_green = baseline_bc / ht_bc_green
 
-    elec_cost_green = hydrotreatment_params["elec_price"] * hydrotreatment_params["elec_requirement"] # €/ton of fuel
+    emissions_params = {
+        "SO2 Grey": relative_so2_grey,
+        "CO2 Grey": relative_co2_grey,
+        "BC Grey": relative_bc_grey,
+        "SO2 Green": relative_so2_green,
+        "CO2 Green": relative_co2_green,
+        "BC Green": relative_bc_green,
+    }
+
+    return emissions_params
+
+
+def calculate_hydrotreatment_cost(
+    demand_df,
+    hydrotreatment_params,
+    DENSITY_SAF,
+    MJ_PER_L,
+):
+    green_h2_cost = (
+        hydrotreatment_params["h2_price_m3"] * hydrotreatment_params["h2_requirement"]
+    )  # €/ton of fuel
+
+    elec_cost_green = (
+        hydrotreatment_params["elec_price"] * hydrotreatment_params["elec_requirement"]
+    )  # €/ton of fuel
 
     total_cost_green = green_h2_cost + elec_cost_green
 
-    total_cost_grey = 10 # €/ton of fuel
+    total_cost_grey = 10  # €/ton of fuel
 
     total_cost_per_l_green = total_cost_green / (1000 / DENSITY_SAF)
 
     total_cost_per_l_grey = total_cost_grey / (1000 / DENSITY_SAF)
 
-    fuel_consumption_2050_l = demand_df.loc[2050, "DEMAND_EJ"] * 10**12 / MJ_PER_L # in L
+    fuel_consumption_2050_l = (
+        demand_df.loc[2050, "DEMAND_EJ"] * 10**12 / MJ_PER_L
+    )  # in L
 
-    total_cost_2050_green = total_cost_per_l_green * fuel_consumption_2050_l # total cost in €
+    total_cost_2050_green = (
+        total_cost_per_l_green * fuel_consumption_2050_l
+    )  # total cost in €
 
-    total_cost_2050_grey = total_cost_per_l_grey * fuel_consumption_2050_l # total cost in €
+    total_cost_2050_grey = (
+        total_cost_per_l_grey * fuel_consumption_2050_l
+    )  # total cost in €
 
     total_cost_hydrotreatment = {
-        "green": total_cost_2050_green,
-        "grey": total_cost_2050_grey
+        "Green": total_cost_2050_green * EUR_USD,
+        "Grey": total_cost_2050_grey * EUR_USD,
     }
+
+    total_cost_hydrotreatment = total_cost_hydrotreatment
 
     return total_cost_hydrotreatment
 
 
+def calculate_additional_abatement_hydrotreatment(
+    demand_df,
+    emission_params,
+    rf_factor_ht_saf,
+    rf_factor_ht_fossil,
+    gwp,
+    MJ_PER_L,
+    ANNUAL_EFFICIENCY_CHANGE,
+    N_YEARS,
+    abate_so2=False,
+    year=2050,
+):
+    GWP_metrics = {
+        "GWP100": {
+            "CO2": 1,
+            "netNOx": 114,
+            "Contrail Cirrus and C-C": 11,  # km basis
+            "BC": 1166,
+            "SO2": -226,
+            "H2O": 0.06,
+        },
+        "GWP20": {
+            "CO2": 1,
+            "netNOx": 619,
+            "Contrail Cirrus and C-C": 39,  # km basis
+            "BC": 4288,
+            "SO2": -832,
+            "H2O": 0.22,
+        },
+    }
+
+    dist_net_2018 = 61333  # Million kms in 2018 from Lee et. al. 2021
+    co2_net_2018 = 1034  # Tg CO2 in 2018 from Lee et. al. 2021 (1Tg = 1Mt)
+    nox_net_2018 = 1.43  # Tg N in 2018 from Lee et. al. 2021
+    so2_net_2018 = 0.3729  # Tg SO2 in 2018 from Lee et. al. 2021
+    bc_net_2018 = 0.0093  # Tg BC in 2018 from Lee et. al. 2021
+    h2o_net_2018 = 382.6  # Tg H2O in 2018 from Lee et. al. 2021
+    contrail_cc_dist_2018 = (
+        6.13 * 10**10
+    )  # Contrail Cirrus and C-C cloud km in 2018 from Lee et. al. 2021
+
+    dist_net_year = demand_df.loc[
+        year, "DEMAND_M_KM"
+    ]  # Total distance covered in given year in million kms
+    co2_net_year = (
+        co2_net_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # CO2 emissions in given year in Mt corrected for demand and efficiency changes
+    nox_net_year = (
+        nox_net_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # NOx emissions in given year in Mt corrected for demand and efficiency changes
+
+    so2_net_year = (
+        so2_net_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # SO2 emissions in given year in Mt corrected for demand and efficiency changes
+
+    bc_net_year = (
+        bc_net_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # BC emissions in given year in Mt corrected for demand and efficiency changes
+
+    h2o_net_year = (
+        h2o_net_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # H2O emissions in given year in Mt corrected for demand and efficiency changes
+
+    contrail_cc_dist_year = (
+        contrail_cc_dist_2018
+        * (dist_net_year / dist_net_2018)
+        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
+    )  # Contrail Cirrus and C-C distance in km in given year corrected for demand and efficiency changes
+
+    abatement_df_gwp_grey = pd.DataFrame(0, index=gwp.index, columns=gwp.columns)
+    abatement_df_gwp_green = pd.DataFrame(0, index=gwp.index, columns=gwp.columns)
+
+    ht_abatement_dfs = {"Grey": abatement_df_gwp_grey, "Green": abatement_df_gwp_green}
+
+    rf_factors = {"BAU": rf_factor_ht_fossil, "SAF": rf_factor_ht_saf}
+
+    species = ["SO2", "CO2", "BC", "Contrail Cirrus and C-C"]
+
+    for df_name, df in ht_abatement_dfs.items():
+        for scenario in ["BAU", "SAF"]:
+            for metric in GWP_metrics.keys():
+                for component in species:
+                    if component != "Contrail Cirrus and C-C":
+                        df.loc[f"{metric} {scenario}", component] = gwp.loc[
+                            f"{metric} {scenario}", component
+                        ] - (
+                            gwp.loc[f"{metric} {scenario}", component]
+                            / emission_params[f"{component} {df_name}"]
+                        )
+                    elif component == "Contrail Cirrus and C-C":
+                        df.loc[f"{metric} {scenario}", component] = nominal_value(
+                            gwp.loc[f"{metric} {scenario}", component]
+                            - (
+                                gwp.loc[f"{metric} {scenario}", component]
+                                * rf_factors[scenario]
+                            )
+                        )
+
+    if not abate_so2:
+        for df in ht_abatement_dfs.values():
+            df.loc["GWP100 BAU", "SO2"] = 0
+            df.loc["GWP100 SAF", "SO2"] = 0
+            df.loc["GWP20 BAU", "SO2"] = 0
+            df.loc["GWP20 SAF", "SO2"] = 0
+
+            df.loc[:, "Total"] = df.sum(axis=1)
+    else:
+        df.loc[:, "Total"] = df.sum(axis=1)
+
+    return ht_abatement_dfs
 
 
+def claculate_additional_abatement_cost_hydrotreatment(
+    total_cost_hydrotreatment, ht_abatement_dfs
+):
+    abatement_cost_dfs = {}
 
+    for df_name, df in ht_abatement_dfs.items():
+        abatement_cost_dfs[df_name] = total_cost_hydrotreatment[df_name] / (
+            df.loc[:, "Total"] * 10**6
+        )
+
+    return abatement_cost_dfs

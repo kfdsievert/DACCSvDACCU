@@ -28,7 +28,7 @@ WACC = 0.07
 ANNUAL_DEMAND_GROWTH_RATE = 0.02
 ANNUAL_EFFICIENCY_CHANGE = 0.01
 MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
-DENSITY_SAF = 0.803 # kg/L density of SAF
+DENSITY_SAF = 0.803  # kg/L density of SAF
 DT = 20  # Years for GWP* calculation
 SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [
     1.29e14,
@@ -40,7 +40,7 @@ REROUTING_FUEL_PENALTY = 0.001  # 0.1% increase in fuel burn (A Martin Frias et.
 FUEL_PRICE_2050 = 1.54  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
 FLEET_SIZE_2025 = 28400  # Approximate fleet size of passenger aircraft in 2025 (Oliver Wyman: https://www.oliverwyman.com/our-expertise/insights/2024/feb/global-fleet-and-mro-market-forecast-2024-2034.html)
 HUMIDITY_SENSOR_COST = 100000  # Cost of humidity sensor per aircraft in $
-HUMIDITY_SENSOR_LIFE = 5 # Life of humidity sensor in years
+HUMIDITY_SENSOR_LIFE = 5  # Life of humidity sensor in years
 SENSOR_REQUIREMENT = (
     0.3  # 30% of aircraft are equipped with humidity sensors (Multiple interviews)
 )
@@ -50,18 +50,22 @@ INFRA_COST_MULTIPLIER = (
 
 
 # Whether contrail avoidance is applied or not. Contrail Avoidance is ONLY applied in 2050 and not before.
-CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
+CONTRAIL_AVOIDANCE = {"Fossil": True, "SAF": True}
+
+# Whether Hydrotreatment is applied or not. Only in 2050.
+HYDROTREATMENT = {"Fossil": True, "SAF": True}
 
 # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
 # These are multipliers for the level of emissions from SAF fuelled aircraft.
 saf_factors = {
-    "CO2": 0, # Assumed net neutral fuel
-    "netNOx": 1, # Own research
+    "CO2": 0,  # Assumed net neutral fuel
+    "netNOx": 1,  # Own research
     "Contrail Cirrus and C-C": 0,  # Calculated in the simulation
-    "BC": 1 - SAF_SOOT_PARTICLE_REDUCTION, # 31% reduction in soot particles from SAF compared to fossil fuel (interviews)
-    "SO2": 0, # Brazzola 2024
-    "H2O": 1.12, # Brazzola 2024
+    "BC": 1
+    - SAF_SOOT_PARTICLE_REDUCTION,  # 31% reduction in soot particles from SAF compared to fossil fuel (interviews)
+    "SO2": 0,  # Brazzola 2024
+    "H2O": 1.12,  # Brazzola 2024
 }
 
 fossil_factors = {"Contrail Cirrus and C-C": 1}
@@ -72,6 +76,10 @@ emission_factors_base = {
     "Fossil": copy.deepcopy(fossil_factors),
     "SAF": copy.deepcopy(saf_factors),
 }
+
+hydrotreatment_cost_params = functions.initialize_hydrotreatment_cost_params()
+hydrotreatment_params = functions.initialize_hydrotreatment_emission_params()
+
 
 # ERF factors are obtained from Lee et. al. 2021
 ERF_FACTORS = {
@@ -96,18 +104,7 @@ df_demand = functions.generate_aviation_demand(
 
 # ---------------- Generate Estimated decrease in CC ----------------#
 # Efficiency improvement + Reduced soot from SAF
-emission_factors["SAF"]["Contrail Cirrus and C-C"] = functions.update_emission_factors(
-    N_YEARS,
-    ANNUAL_EFFICIENCY_CHANGE,
-    SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
-    SAF_SOOT_PARTICLE_REDUCTION,
-    CONTRAIL_AVOIDANCE,
-    CONTRAIL_REDUCTION,
-    show_plots=False,
-    tech="SAF",
-)
-# Efficiency improvement
-emission_factors["Fossil"]["Contrail Cirrus and C-C"] = (
+emission_factors["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf = (
     functions.update_emission_factors(
         N_YEARS,
         ANNUAL_EFFICIENCY_CHANGE,
@@ -115,12 +112,29 @@ emission_factors["Fossil"]["Contrail Cirrus and C-C"] = (
         SAF_SOOT_PARTICLE_REDUCTION,
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION,
+        HYDROTREATMENT,
+        hydrotreatment_params,
+        show_plots=False,
+        tech="SAF",
+    )
+)
+# Efficiency improvement
+emission_factors["Fossil"]["Contrail Cirrus and C-C"], rf_factor_ht_fossil = (
+    functions.update_emission_factors(
+        N_YEARS,
+        ANNUAL_EFFICIENCY_CHANGE,
+        SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
+        SAF_SOOT_PARTICLE_REDUCTION,
+        CONTRAIL_AVOIDANCE,
+        CONTRAIL_REDUCTION,
+        HYDROTREATMENT,
+        hydrotreatment_params,
         show_plots=False,
         tech="Fossil",
     )
 )
 
-emission_factors_base["SAF"]["Contrail Cirrus and C-C"] = (
+emission_factors_base["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf_base = (
     functions.update_emission_factors(
         N_YEARS,
         ANNUAL_EFFICIENCY_CHANGE,
@@ -128,12 +142,14 @@ emission_factors_base["SAF"]["Contrail Cirrus and C-C"] = (
         SAF_SOOT_PARTICLE_REDUCTION,
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION=0,
+        HYDROTREATMENT={"Fossil": False, "SAF": False},
+        ht_emission_params=hydrotreatment_params,
         show_plots=False,
         tech="SAF",
     )
 )
 
-emission_factors_base["Fossil"]["Contrail Cirrus and C-C"] = (
+emission_factors_base["Fossil"]["Contrail Cirrus and C-C"], rf_factor_h_fossil_base = (
     functions.update_emission_factors(
         N_YEARS,
         ANNUAL_EFFICIENCY_CHANGE,
@@ -141,6 +157,8 @@ emission_factors_base["Fossil"]["Contrail Cirrus and C-C"] = (
         SAF_SOOT_PARTICLE_REDUCTION,
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION=0,
+        HYDROTREATMENT={"Fossil": False, "SAF": False},
+        ht_emission_params=hydrotreatment_params,
         show_plots=False,
         tech="Fossil",
     )
@@ -266,6 +284,7 @@ residual_abatement_cost_saf = functions.calculate_residual_abatement_saf(
 # ---------------- Calculate total abatement costs ----------------#
 total_abatement_cost_saf = abatement_cost_saf + residual_abatement_cost_saf  # In $2050
 
+# Contrail Avoidance Calculation
 contrail_avoidance_capex = functions.calculate_investment_contrail_avoidance(
     df_demand,
     FLEET_SIZE_2025,
@@ -273,7 +292,7 @@ contrail_avoidance_capex = functions.calculate_investment_contrail_avoidance(
     SENSOR_REQUIREMENT,
     INFRA_COST_MULTIPLIER,
     WACC,
-    HUMIDITY_SENSOR_LIFE
+    HUMIDITY_SENSOR_LIFE,
 )
 
 # If rerouting is applied, additional fuel cost is added to the total abatement cost for SAF.
@@ -285,14 +304,15 @@ if CONTRAIL_AVOIDANCE["SAF"]:
 
 abatement_costs_saf_per_ton_eq = functions.calculate_total_abatement_cost_saf_non_co2(
     total_abatement_cost_saf, gwp, gwp_star
-)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.]
+)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] incl. contrail avoidance
 
 abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
     abatement_curve_daccs, gwp, gwp_star
-)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.]
+)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
 
 if CONTRAIL_AVOIDANCE["Fossil"]:
-    additional_abatement_costs_daccs_per_ton_eq = (
+    # Abatement cost for GWP20 and GWP100 for contrail avoidance including CAPEX and OPEX
+    additional_abatement_costs_contrails_per_ton_eq, abated_emissions_contrail_avoidance = (
         functions.calculate_additional_abatement_cost_contrail_avoidance(
             df_demand,
             gwp,
@@ -305,24 +325,50 @@ if CONTRAIL_AVOIDANCE["Fossil"]:
     )
 
     abatement_costs_daccs_per_ton_eq["GWP100"] += (
-        additional_abatement_costs_daccs_per_ton_eq["GWP100 BAU"]
+        additional_abatement_costs_contrails_per_ton_eq["GWP100 BAU"] # incl. contrail avoidance
     )
     abatement_costs_daccs_per_ton_eq["GWP20"] += (
-        additional_abatement_costs_daccs_per_ton_eq["GWP20 BAU"]
+        additional_abatement_costs_contrails_per_ton_eq["GWP20 BAU"] # incl. contrail avoidance
     )
+
+# ---------------- Calculate abatement from hydrotreatment ----------------#
+
+ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
+    df_demand,
+    hydrotreatment_params,
+    rf_factor_ht_saf,
+    rf_factor_ht_fossil,
+    gwp,
+    MJ_PER_L,
+    ANNUAL_EFFICIENCY_CHANGE,
+    N_YEARS,
+    abate_so2=False,
+    year=2050,
+)
 
 # ---------------- Add hydrotreatment costs ----------------#
 
-hydrotreatment_params = functions.initialize_hydrotreatment_cost_params()
+hydrotreatment_costs = functions.calculate_hydrotreatment_cost(
+    df_demand, hydrotreatment_cost_params, DENSITY_SAF, MJ_PER_L
+)
 
-hydrotreatment_costs = functions.calculate_hydrotreatment_cost(df_demand,hydrotreatment_params, DENSITY_SAF, MJ_PER_L)
+hydrotreatment_costs["Green"] = hydrotreatment_costs["Green"] + 0.35 * hydrotreatment_costs["Grey"] # 35% additional CAPEX for green H2
+
+abatement_costs_hydrotreatment = (
+    functions.claculate_additional_abatement_cost_hydrotreatment(
+        hydrotreatment_costs, ht_abatement_dfs
+    )
+)
+
 
 # ---------------- Export results ----------------#
 gwp.to_csv("outputs/gwp.csv")
 gwp_star.to_csv("outputs/gwp_star.csv")
+abated_emissions_contrail_avoidance.to_csv("outputs/abated_emissions_contrail_avoidance.csv")
+for df_name, df in abatement_costs_hydrotreatment.items():
+    df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
 for key, value in abatement_costs_saf_per_ton_eq.items():
     value.to_csv(f"outputs/{key}_abatement_cost_saf.csv")
-
 for key, value in abatement_costs_daccs_per_ton_eq.items():
     value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv")
 
