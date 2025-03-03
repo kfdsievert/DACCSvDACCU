@@ -1608,7 +1608,8 @@ def calculate_additional_abatement_hydrotreatment(
 
             df.loc[:, "Total"] = df.sum(axis=1)
     else:
-        df.loc[:, "Total"] = df.sum(axis=1)
+        for df in ht_abatement_dfs.values():
+            df.loc[:, "Total"] = df.sum(axis=1)
 
     return ht_abatement_dfs
 

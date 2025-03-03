@@ -342,7 +342,7 @@ ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     MJ_PER_L,
     ANNUAL_EFFICIENCY_CHANGE,
     N_YEARS,
-    abate_so2=False,
+    abate_so2=True,
     year=2050,
 )
 
@@ -367,6 +367,8 @@ gwp_star.to_csv("outputs/gwp_star.csv")
 abated_emissions_contrail_avoidance.to_csv("outputs/abated_emissions_contrail_avoidance.csv")
 for df_name, df in abatement_costs_hydrotreatment.items():
     df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
+for df_name, df in ht_abatement_dfs.items():
+    df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv")
 for key, value in abatement_costs_saf_per_ton_eq.items():
     value.to_csv(f"outputs/{key}_abatement_cost_saf.csv")
 for key, value in abatement_costs_daccs_per_ton_eq.items():
