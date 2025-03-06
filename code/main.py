@@ -1,7 +1,5 @@
 import functions
-import numpy as np
 import pandas as pd
-from uncertainties import unumpy, ufloat
 import copy
 
 
@@ -53,7 +51,7 @@ INFRA_COST_MULTIPLIER = (
 CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
 
 # Whether Hydrotreatment is applied or not. Only in 2050.
-HYDROTREATMENT = {"Fossil": True, "SAF": True}
+HYDROTREATMENT = {"Fossil": True, "SAF": False}
 
 # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
@@ -470,13 +468,16 @@ if CONTRAIL_AVOIDANCE["Fossil"]:
 # ---------------- Export results ----------------#
 gwp_final.to_csv("outputs/gwp.csv")
 gwp_star.to_csv("outputs/gwp_star.csv")
-abated_emissions_contrail_avoidance.to_csv(
-    "outputs/abated_emissions_contrail_avoidance.csv"
-)
-for df_name, df in abatement_costs_hydrotreatment.items():
-    df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
-for df_name, df in ht_abatement_dfs.items():
-    df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv")
+
+if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+    abated_emissions_contrail_avoidance.to_csv(
+        "outputs/abated_emissions_contrail_avoidance.csv"
+    )
+if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
+    for df_name, df in abatement_costs_hydrotreatment.items():
+        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
+    for df_name, df in ht_abatement_dfs.items():
+        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv")
 for key, value in abatement_costs_saf_per_ton_eq.items():
     value.to_csv(f"outputs/{key}_abatement_cost_saf.csv")
 for key, value in abatement_costs_daccs_per_ton_eq.items():
