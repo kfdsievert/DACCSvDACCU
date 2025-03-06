@@ -1446,12 +1446,12 @@ def initialize_hydrotreatment_emission_params():
     # Emissions from Hydrotreated Jet A-1 with grey hydrogen
     ht_so2_grey = 0.0111  # g/l of fuel
     ht_co2_per_l_grey = 2.55  # kg/l
-    ht_bc_grey = 0.021
+    ht_bc_grey = 0.01656 #reduction by 31% in line with SAF
 
     # Emissions from Hydrotreated Jet A-1 with green hydrogen
     ht_so2_green = 0.0111
     ht_co2_per_l_green = 2.55
-    ht_bc_green = 0.021
+    ht_bc_green = 0.01656 #reduction by 31% in line with SAF
 
     additional_co2_emissions_ht_grey = 0.14
     additional_co2_emissions_ht_green = 0.01
