@@ -39,7 +39,7 @@ CONTRAIL_REDUCTION = 0.64  # 80% reduction using maneuvers and 80% successful ma
 REROUTING_FUEL_PENALTY = 0.001  # 0.1% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
 FUEL_PRICE_2050 = 1.54  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
 FLEET_SIZE_2025 = 28400  # Approximate fleet size of passenger aircraft in 2025 (Oliver Wyman: https://www.oliverwyman.com/our-expertise/insights/2024/feb/global-fleet-and-mro-market-forecast-2024-2034.html)
-HUMIDITY_SENSOR_COST = 100000  # Cost of humidity sensor per aircraft in $
+HUMIDITY_SENSOR_COST = 100000  # CAPEX of humidity sensor per aircraft in $
 HUMIDITY_SENSOR_LIFE = 5  # Life of humidity sensor in years
 SENSOR_REQUIREMENT = (
     0.3  # 30% of aircraft are equipped with humidity sensors (Multiple interviews)
@@ -50,7 +50,7 @@ INFRA_COST_MULTIPLIER = (
 
 
 # Whether contrail avoidance is applied or not. Contrail Avoidance is ONLY applied in 2050 and not before.
-CONTRAIL_AVOIDANCE = {"Fossil": True, "SAF": True}
+CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
 
 # Whether Hydrotreatment is applied or not. Only in 2050.
 HYDROTREATMENT = {"Fossil": True, "SAF": True}
@@ -77,11 +77,13 @@ emission_factors_base = {
     "SAF": copy.deepcopy(saf_factors),
 }
 
-hydrotreatment_cost_params = functions.initialize_hydrotreatment_cost_params()
-hydrotreatment_params = functions.initialize_hydrotreatment_emission_params()
+hydrotreatment_cost_params = (
+    functions.initialize_hydrotreatment_cost_params()
+)  # Initializes cost parameters for hydrotreatment
+hydrotreatment_emission_params = functions.initialize_hydrotreatment_emission_params()  # Initializes emission parameters for hydrotreatment, returns the ratio of emissions from hydrotreated fuel to fossil fuel
 
 
-# ERF factors are obtained from Lee et. al. 2021
+# ERF factors are obtained from Lee et. al. 2021. Used in GWP* calculation.
 ERF_FACTORS = {
     # Nitrogen-related factors (mW/m²/TgN)
     "O3 short": 34.44,
@@ -103,7 +105,7 @@ df_demand = functions.generate_aviation_demand(
 )
 
 # ---------------- Generate Estimated decrease in CC ----------------#
-# Efficiency improvement + Reduced soot from SAF
+# Efficiency improvement + Reduced soot from SAF, rf_factor_ht_saf is the ratio of emissions from hydrotreated fuel to base fuel (either SAF or Fossil)
 emission_factors["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf = (
     functions.update_emission_factors(
         N_YEARS,
@@ -113,7 +115,7 @@ emission_factors["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf = (
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION,
         HYDROTREATMENT,
-        hydrotreatment_params,
+        hydrotreatment_emission_params,
         show_plots=False,
         tech="SAF",
     )
@@ -128,12 +130,12 @@ emission_factors["Fossil"]["Contrail Cirrus and C-C"], rf_factor_ht_fossil = (
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION,
         HYDROTREATMENT,
-        hydrotreatment_params,
+        hydrotreatment_emission_params,
         show_plots=False,
         tech="Fossil",
     )
 )
-
+# Base condition is when contrail avoidance and hydrotreatment are not applied, hence Contrail Reduction is set to 0.
 emission_factors_base["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf_base = (
     functions.update_emission_factors(
         N_YEARS,
@@ -143,7 +145,7 @@ emission_factors_base["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf_base =
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION=0,
         HYDROTREATMENT={"Fossil": False, "SAF": False},
-        ht_emission_params=hydrotreatment_params,
+        ht_emission_params=hydrotreatment_emission_params,
         show_plots=False,
         tech="SAF",
     )
@@ -158,14 +160,14 @@ emission_factors_base["Fossil"]["Contrail Cirrus and C-C"], rf_factor_h_fossil_b
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION=0,
         HYDROTREATMENT={"Fossil": False, "SAF": False},
-        ht_emission_params=hydrotreatment_params,
+        ht_emission_params=hydrotreatment_emission_params,
         show_plots=False,
         tech="Fossil",
     )
 )
 
 # --------------- Generate CO2 Emissions based on demand ---------------#
-# Future emissions from aviation in BAU scenario. NOTE: These are NOT adjusted for contrail avoidance as it is only applied in 2050.
+# Future emissions from aviation in BAU scenario. NOTE: These are NOT adjusted for contrail avoidance as it is only applied in 2050 and not applied for GWP*
 future_emissions_fossil = functions.future_aviation_emissions(
     base_inputs,
     ANNUAL_EFFICIENCY_CHANGE,
@@ -184,7 +186,7 @@ future_emissions_saf = functions.future_aviation_emissions(
 )
 
 # ---------------- Calculate ERF for all species emitted ----------------#
-# Calculate ERF from all species emitted
+# Calculate ERF from all species emitted in BAU and SAF scenarios
 erf_fossil = functions.calculate_ERF(future_emissions_fossil, ERF_FACTORS)
 
 erf_saf = functions.calculate_ERF(future_emissions_saf, ERF_FACTORS)
@@ -218,7 +220,7 @@ gwp = pd.concat([gwp_100, gwp_20])
 # Total emissions by summing up rows
 gwp.loc[:, "Total"] = gwp.sum(axis=1)
 
-# Baseline factors generated to calculate abatement cost for contrail avoidance measures
+# Baseline equivalents generated to keep baseline emissions without additional measures such as contrail avoidance. Contrail Avoidance is set to false here.
 gwp_100_baseline = functions.generate_equivalence_gwp(
     df_demand,
     base_inputs,
@@ -268,7 +270,7 @@ gwp_star.loc[:, "Total"] = gwp_star.sum(axis=1)
 # Cost of deploying SAF to abate total emissions from aviation in 2050.
 # The cost is is calculated by multiplying the abatement cost ($/tCO2) with the total emissions (tCO2) in 2050.
 abatement_cost_saf = functions.calculate_abatement_cost_saf(
-    abatement_curve_saf, gwp_100, 2050, SIMULATION_START
+    abatement_curve_saf, gwp_100_baseline, 2050, SIMULATION_START
 )
 
 # Cost of abating residualS SAF emissions using DACCS
@@ -295,54 +297,47 @@ contrail_avoidance_capex = functions.calculate_investment_contrail_avoidance(
     HUMIDITY_SENSOR_LIFE,
 )
 
-# If rerouting is applied, additional fuel cost is added to the total abatement cost for SAF.
-if CONTRAIL_AVOIDANCE["SAF"]:
-    total_abatement_cost_saf += functions.calculate_additional_fuel_cost(
-        df_demand, REROUTING_FUEL_PENALTY, FUEL_PRICE_2050, MJ_PER_L
+abatement_costs_saf_per_ton_eq, abated_emissions_saf = (
+    functions.calculate_total_abatement_cost_saf_non_co2(
+        total_abatement_cost_saf, gwp_baseline, gwp_star
     )
-    total_abatement_cost_saf += contrail_avoidance_capex
-
-abatement_costs_saf_per_ton_eq = functions.calculate_total_abatement_cost_saf_non_co2(
-    total_abatement_cost_saf, gwp, gwp_star
-)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] incl. contrail avoidance
-
-abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
-    abatement_curve_daccs, gwp, gwp_star
 )  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
 
-if CONTRAIL_AVOIDANCE["Fossil"]:
-    # Abatement cost for GWP20 and GWP100 for contrail avoidance including CAPEX and OPEX
-    additional_abatement_costs_contrails_per_ton_eq, abated_emissions_contrail_avoidance = (
-        functions.calculate_additional_abatement_cost_contrail_avoidance(
-            df_demand,
-            gwp,
-            gwp_baseline,
-            contrail_avoidance_capex,
-            REROUTING_FUEL_PENALTY,
-            FUEL_PRICE_2050,
-            MJ_PER_L,
-        )
+abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
+    abatement_curve_daccs, gwp_baseline, gwp_star
+)  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
+
+abated_emissions_daccs = copy.deepcopy(
+    abated_emissions_saf
+)  # Equal emissions must be abated by both technologies.
+if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+    (
+        additional_abatement_costs_contrails_per_ton_eq,
+        abated_emissions_contrail_avoidance,
+        additional_cost_breakdown,
+    ) = functions.calculate_additional_abatement_cost_contrail_avoidance(
+        df_demand,
+        gwp,
+        gwp_baseline,
+        contrail_avoidance_capex,
+        REROUTING_FUEL_PENALTY,
+        FUEL_PRICE_2050,
+        MJ_PER_L,
     )
 
-    abatement_costs_daccs_per_ton_eq["GWP100"] += (
-        additional_abatement_costs_contrails_per_ton_eq["GWP100 BAU"] # incl. contrail avoidance
-    )
-    abatement_costs_daccs_per_ton_eq["GWP20"] += (
-        additional_abatement_costs_contrails_per_ton_eq["GWP20 BAU"] # incl. contrail avoidance
-    )
 
 # ---------------- Calculate abatement from hydrotreatment ----------------#
 
 ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     df_demand,
-    hydrotreatment_params,
+    hydrotreatment_emission_params,
     rf_factor_ht_saf,
     rf_factor_ht_fossil,
     gwp,
     MJ_PER_L,
     ANNUAL_EFFICIENCY_CHANGE,
     N_YEARS,
-    abate_so2=True,
+    abate_so2=False,
     year=2050,
 )
 
@@ -352,7 +347,9 @@ hydrotreatment_costs = functions.calculate_hydrotreatment_cost(
     df_demand, hydrotreatment_cost_params, DENSITY_SAF, MJ_PER_L
 )
 
-hydrotreatment_costs["Green"] = hydrotreatment_costs["Green"] + 0.35 * hydrotreatment_costs["Grey"] # 35% additional CAPEX for green H2
+hydrotreatment_costs["Green"] = (
+    hydrotreatment_costs["Green"] + 0.35 * hydrotreatment_costs["Grey"]
+)  # 35% additional CAPEX for green H2
 
 abatement_costs_hydrotreatment = (
     functions.claculate_additional_abatement_cost_hydrotreatment(
@@ -360,11 +357,122 @@ abatement_costs_hydrotreatment = (
     )
 )
 
+# Update abatement costs for contrail avoidance and hydrotreatment.
+gwp_final = copy.deepcopy(gwp)
+if CONTRAIL_AVOIDANCE["SAF"]:
+    if HYDROTREATMENT["SAF"]:
+        gwp_final.loc[gwp_final.index.str.contains("SAF"),:] = gwp.loc[gwp.index.str.contains("SAF"),:]  - ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains("SAF"), :]
+        for metric in abatement_costs_saf_per_ton_eq.keys():
+            if metric != "GWP_star":
+                if ht_abatement_dfs["Green"].loc[f"{metric} SAF", "Total"] > 0:
+                    abatement_costs_saf_per_ton_eq[metric] = (
+                        functions.calculate_total_abatement_cost(
+                            [
+                                (
+                                    abatement_costs_saf_per_ton_eq[metric],
+                                    abated_emissions_saf[metric],
+                                ),
+                                (
+                                    additional_abatement_costs_contrails_per_ton_eq[
+                                        f"{metric} SAF"
+                                    ],
+                                    abated_emissions_contrail_avoidance.loc[
+                                        f"{metric} SAF", "Total"
+                                    ],
+                                ),
+                                (
+                                    abatement_costs_hydrotreatment["Green"][
+                                        f"{metric} SAF"
+                                    ],
+                                    ht_abatement_dfs["Green"].loc[
+                                        f"{metric} SAF", "Total"
+                                    ],
+                                ),
+                            ]
+                        )
+                    )
+    else:
+        for metric in abatement_costs_saf_per_ton_eq.keys():
+            if metric != "GWP_star":
+                abatement_costs_saf_per_ton_eq[metric] = (
+                    functions.calculate_total_abatement_cost(
+                        [
+                            (
+                                abatement_costs_saf_per_ton_eq[metric],
+                                abated_emissions_saf[metric],
+                            ),
+                            (
+                                additional_abatement_costs_contrails_per_ton_eq[
+                                    f"{metric} SAF"
+                                ],
+                                abated_emissions_contrail_avoidance.loc[
+                                    f"{metric} SAF", "Total"
+                                ],
+                            ),
+                        ]
+                    )
+                )
+if CONTRAIL_AVOIDANCE["Fossil"]:
+    if HYDROTREATMENT["Fossil"]:
+        gwp_final.loc[gwp_final.index.str.contains("BAU"),:] = gwp.loc[gwp.index.str.contains("BAU"),:]  - ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains("BAU"), :]
+        for metric in abatement_costs_daccs_per_ton_eq.keys():
+            if metric != "GWP_star":
+                if ht_abatement_dfs["Green"].loc[f"{metric} BAU", "Total"] > 0:
+                    abatement_costs_daccs_per_ton_eq[metric] = (
+                        functions.calculate_total_abatement_cost(
+                            [
+                                (
+                                    abatement_costs_daccs_per_ton_eq[metric],
+                                    abated_emissions_daccs[metric],
+                                ),
+                                (
+                                    additional_abatement_costs_contrails_per_ton_eq[
+                                        f"{metric} BAU"
+                                    ],
+                                    abated_emissions_contrail_avoidance.loc[
+                                        f"{metric} BAU", "Total"
+                                    ],
+                                ),
+                                (
+                                    abatement_costs_hydrotreatment["Green"][
+                                        f"{metric} BAU"
+                                    ],
+                                    ht_abatement_dfs["Green"].loc[
+                                        f"{metric} BAU", "Total"
+                                    ],
+                                ),
+                            ]
+                        )
+                    )
+    else:
+        for metric in abatement_costs_daccs_per_ton_eq.keys():
+            if metric != "GWP_star":
+                abatement_costs_daccs_per_ton_eq[metric] = (
+                    functions.calculate_total_abatement_cost(
+                        [
+                            (
+                                abatement_costs_daccs_per_ton_eq[metric],
+                                abated_emissions_daccs[metric],
+                            ),
+                            (
+                                additional_abatement_costs_contrails_per_ton_eq[
+                                    f"{metric} BAU"
+                                ],
+                                abated_emissions_contrail_avoidance.loc[
+                                    f"{metric} BAU", "Total"
+                                ],
+                            ),
+                        ]
+                    )
+                )
+
 
 # ---------------- Export results ----------------#
-gwp.to_csv("outputs/gwp.csv")
+gwp_final.to_csv("outputs/gwp.csv")
 gwp_star.to_csv("outputs/gwp_star.csv")
-abated_emissions_contrail_avoidance.to_csv("outputs/abated_emissions_contrail_avoidance.csv")
+abated_emissions_contrail_avoidance.to_csv(
+    "outputs/abated_emissions_contrail_avoidance.csv"
+)
 for df_name, df in abatement_costs_hydrotreatment.items():
     df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
 for df_name, df in ht_abatement_dfs.items():
