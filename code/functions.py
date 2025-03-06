@@ -1460,13 +1460,13 @@ def initialize_hydrotreatment_emission_params():
     ht_co2_per_l_green_net = ht_co2_per_l_green + additional_co2_emissions_ht_green
 
     # Relative emissions for grey and green hydrogen
-    relative_so2_grey = baseline_so2 / ht_so2_grey
-    relative_co2_grey = baseline_co2_per_l / ht_co2_per_l_grey_net
-    relative_bc_grey = baseline_bc / ht_bc_grey
+    relative_so2_grey = ht_so2_grey / baseline_so2
+    relative_co2_grey = ht_co2_per_l_grey_net / baseline_co2_per_l
+    relative_bc_grey = ht_bc_grey / baseline_bc
 
-    relative_so2_green = baseline_so2 / ht_so2_green
-    relative_co2_green = baseline_co2_per_l / ht_co2_per_l_green_net
-    relative_bc_green = baseline_bc / ht_bc_green
+    relative_so2_green = ht_so2_green / baseline_so2
+    relative_co2_green = ht_co2_per_l_green_net / baseline_co2_per_l
+    relative_bc_green = ht_bc_green / baseline_bc
 
     emissions_params = {
         "SO2 Grey": relative_so2_grey,
@@ -1628,7 +1628,7 @@ def calculate_additional_abatement_hydrotreatment(
                             f"{metric} {scenario}", component
                         ] - (
                             gwp.loc[f"{metric} {scenario}", component]
-                            / emission_params[f"{component} {df_name}"] 
+                            * emission_params[f"{component} {df_name}"] 
                         )
                     elif component == "Contrail Cirrus and C-C":
                         df.loc[f"{metric} {scenario}", component] = nominal_value(

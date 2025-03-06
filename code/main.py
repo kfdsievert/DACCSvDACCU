@@ -51,7 +51,7 @@ INFRA_COST_MULTIPLIER = (
 CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
 
 # Whether Hydrotreatment is applied or not. Only in 2050.
-HYDROTREATMENT = {"Fossil": True, "SAF": False}
+HYDROTREATMENT = {"Fossil": False, "SAF": False}
 
 # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
@@ -357,112 +357,38 @@ abatement_costs_hydrotreatment = (
 
 # Update abatement costs for contrail avoidance and hydrotreatment.
 gwp_final = copy.deepcopy(gwp)
-if CONTRAIL_AVOIDANCE["SAF"]:
-    if HYDROTREATMENT["SAF"]:
-        gwp_final.loc[gwp_final.index.str.contains("SAF"),:] = gwp.loc[gwp.index.str.contains("SAF"),:]  - ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains("SAF"), :]
-        for metric in abatement_costs_saf_per_ton_eq.keys():
-            if metric != "GWP_star":
-                if ht_abatement_dfs["Green"].loc[f"{metric} SAF", "Total"] > 0:
-                    abatement_costs_saf_per_ton_eq[metric] = (
-                        functions.calculate_total_abatement_cost(
-                            [
-                                (
-                                    abatement_costs_saf_per_ton_eq[metric],
-                                    abated_emissions_saf[metric],
-                                ),
-                                (
-                                    additional_abatement_costs_contrails_per_ton_eq[
-                                        f"{metric} SAF"
-                                    ],
-                                    abated_emissions_contrail_avoidance.loc[
-                                        f"{metric} SAF", "Total"
-                                    ],
-                                ),
-                                (
-                                    abatement_costs_hydrotreatment["Green"][
-                                        f"{metric} SAF"
-                                    ],
-                                    ht_abatement_dfs["Green"].loc[
-                                        f"{metric} SAF", "Total"
-                                    ],
-                                ),
-                            ]
-                        )
-                    )
-    else:
-        for metric in abatement_costs_saf_per_ton_eq.keys():
-            if metric != "GWP_star":
-                abatement_costs_saf_per_ton_eq[metric] = (
-                    functions.calculate_total_abatement_cost(
-                        [
-                            (
-                                abatement_costs_saf_per_ton_eq[metric],
-                                abated_emissions_saf[metric],
-                            ),
-                            (
-                                additional_abatement_costs_contrails_per_ton_eq[
-                                    f"{metric} SAF"
-                                ],
-                                abated_emissions_contrail_avoidance.loc[
-                                    f"{metric} SAF", "Total"
-                                ],
-                            ),
-                        ]
-                    )
+for fuel_type in ["SAF", "Fossil"]:
+    fuel_label = "BAU" if fuel_type == "Fossil" else "SAF"
+    abatement_costs = abatement_costs_daccs_per_ton_eq if fuel_type == "Fossil" else abatement_costs_saf_per_ton_eq
+    abated_emissions = abated_emissions_daccs if fuel_type == "Fossil" else abated_emissions_saf
+    
+    for metric in abatement_costs.keys():
+        if metric == "GWP_star":
+            continue
+        
+        cost_components = [(abatement_costs[metric], abated_emissions[metric])]
+        
+        if CONTRAIL_AVOIDANCE[fuel_type]:
+            cost_components.append(
+                (
+                    additional_abatement_costs_contrails_per_ton_eq[f"{metric} {fuel_label}"],
+                    abated_emissions_contrail_avoidance.loc[f"{metric} {fuel_label}", "Total"],
                 )
-if CONTRAIL_AVOIDANCE["Fossil"]:
-    if HYDROTREATMENT["Fossil"]:
-        gwp_final.loc[gwp_final.index.str.contains("BAU"),:] = gwp.loc[gwp.index.str.contains("BAU"),:]  - ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains("BAU"), :]
-        for metric in abatement_costs_daccs_per_ton_eq.keys():
-            if metric != "GWP_star":
-                if ht_abatement_dfs["Green"].loc[f"{metric} BAU", "Total"] > 0:
-                    abatement_costs_daccs_per_ton_eq[metric] = (
-                        functions.calculate_total_abatement_cost(
-                            [
-                                (
-                                    abatement_costs_daccs_per_ton_eq[metric],
-                                    abated_emissions_daccs[metric],
-                                ),
-                                (
-                                    additional_abatement_costs_contrails_per_ton_eq[
-                                        f"{metric} BAU"
-                                    ],
-                                    abated_emissions_contrail_avoidance.loc[
-                                        f"{metric} BAU", "Total"
-                                    ],
-                                ),
-                                (
-                                    abatement_costs_hydrotreatment["Green"][
-                                        f"{metric} BAU"
-                                    ],
-                                    ht_abatement_dfs["Green"].loc[
-                                        f"{metric} BAU", "Total"
-                                    ],
-                                ),
-                            ]
-                        )
-                    )
-    else:
-        for metric in abatement_costs_daccs_per_ton_eq.keys():
-            if metric != "GWP_star":
-                abatement_costs_daccs_per_ton_eq[metric] = (
-                    functions.calculate_total_abatement_cost(
-                        [
-                            (
-                                abatement_costs_daccs_per_ton_eq[metric],
-                                abated_emissions_daccs[metric],
-                            ),
-                            (
-                                additional_abatement_costs_contrails_per_ton_eq[
-                                    f"{metric} BAU"
-                                ],
-                                abated_emissions_contrail_avoidance.loc[
-                                    f"{metric} BAU", "Total"
-                                ],
-                            ),
-                        ]
-                    )
+            )
+        
+        if HYDROTREATMENT[fuel_type] and ht_abatement_dfs["Green"].loc[f"{metric} {fuel_label}", "Total"] > 0:
+            gwp_final.loc[gwp_final.index.str.contains(fuel_label), :] = (
+                gwp.loc[gwp.index.str.contains(fuel_label), :] -
+                ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains(fuel_label), :]
+            )
+            cost_components.append(
+                (
+                    abatement_costs_hydrotreatment["Green"][f"{metric} {fuel_label}"],
+                    ht_abatement_dfs["Green"].loc[f"{metric} {fuel_label}", "Total"],
                 )
+            )
+        
+        abatement_costs[metric] = functions.calculate_total_abatement_cost(cost_components)
 
 
 # ---------------- Export results ----------------#
