@@ -51,7 +51,7 @@ INFRA_COST_MULTIPLIER = (
 CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
 
 # Whether Hydrotreatment is applied or not. Only in 2050.
-HYDROTREATMENT = {"Fossil": False, "SAF": False}
+HYDROTREATMENT = {"Fossil": True, "SAF": False}
 
 # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
@@ -397,16 +397,22 @@ gwp_star.to_csv("outputs/gwp_star.csv")
 
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
     abated_emissions_contrail_avoidance.to_csv(
-        "outputs/abated_emissions_contrail_avoidance.csv"
+        "outputs/abated_emissions_contrail_avoidance.csv",
+        mode="w",  # Overwrites the file
+        index=False,  # Optional: Avoids writing row indices
     )
+
 if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
     for df_name, df in abatement_costs_hydrotreatment.items():
-        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv")
+        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv", mode="w", index=False)
     for df_name, df in ht_abatement_dfs.items():
-        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv")
+        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv", mode="w", index=False)
+
 for key, value in abatement_costs_saf_per_ton_eq.items():
-    value.to_csv(f"outputs/{key}_abatement_cost_saf.csv")
+    value.to_csv(f"outputs/{key}_abatement_cost_saf.csv", mode="w", index=False)
+
 for key, value in abatement_costs_daccs_per_ton_eq.items():
-    value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv")
+    value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv", mode="w", index=False)
+
 
 print("Simulation complete. Results exported to outputs folder.")
