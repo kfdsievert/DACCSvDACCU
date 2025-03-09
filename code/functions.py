@@ -36,10 +36,13 @@ def load_input_abatement_cost(file_path, tech):
         cost_col = "Fully Harmonized NET REMOVED COST (incl T&S"
         skiprows = 1
         year_col = "Year of Assumptions in Study"
+        filter_rows = ["Young et al. 2023", "Sievert et al. 2024", "Fasihi et al. 2019", "Pett-Ridge et al. 2024", "Keith et al. 2018"]
     elif tech == "SAF":
         cost_col = "Fully Harmonized"
         skiprows = 0
         year_col = "Year of Cost"
+        filter_rows = ["Brazzola et al. ","Gray et al.","Marchese et.al. ","Martin et. al.","Moretti et al.","Peacock et. al.",
+                       "Schmidt et. al.","Seymour et al.","Sherwin"]
         return_residual_emissions = True
 
     # First row is headers and is skipped
@@ -51,6 +54,7 @@ def load_input_abatement_cost(file_path, tech):
         input_abatement_cost_low = pd.read_excel(
             file_path, sheet_name="Low CO2", skiprows=skiprows, index_col=0
         )
+        input_abatement_cost_low = input_abatement_cost_low.loc[input_abatement_cost_low.index.isin(filter_rows),:]
         input_abatement_cost_high = pd.read_excel(
             file_path, sheet_name="High CO2", skiprows=skiprows, index_col=0
         )
@@ -1555,54 +1559,6 @@ def calculate_additional_abatement_hydrotreatment(
         },
     }
 
-    dist_net_2018 = 61333  # Million kms in 2018 from Lee et. al. 2021
-    co2_net_2018 = 1034  # Tg CO2 in 2018 from Lee et. al. 2021 (1Tg = 1Mt)
-    nox_net_2018 = 1.43  # Tg N in 2018 from Lee et. al. 2021
-    so2_net_2018 = 0.3729  # Tg SO2 in 2018 from Lee et. al. 2021
-    bc_net_2018 = 0.0093  # Tg BC in 2018 from Lee et. al. 2021
-    h2o_net_2018 = 382.6  # Tg H2O in 2018 from Lee et. al. 2021
-    contrail_cc_dist_2018 = (
-        6.13 * 10**10
-    )  # Contrail Cirrus and C-C cloud km in 2018 from Lee et. al. 2021
-
-    dist_net_year = demand_df.loc[
-        year, "DEMAND_M_KM"
-    ]  # Total distance covered in given year in million kms
-    co2_net_year = (
-        co2_net_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # CO2 emissions in given year in Mt corrected for demand and efficiency changes
-    nox_net_year = (
-        nox_net_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # NOx emissions in given year in Mt corrected for demand and efficiency changes
-
-    so2_net_year = (
-        so2_net_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # SO2 emissions in given year in Mt corrected for demand and efficiency changes
-
-    bc_net_year = (
-        bc_net_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # BC emissions in given year in Mt corrected for demand and efficiency changes
-
-    h2o_net_year = (
-        h2o_net_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # H2O emissions in given year in Mt corrected for demand and efficiency changes
-
-    contrail_cc_dist_year = (
-        contrail_cc_dist_2018
-        * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
-    )  # Contrail Cirrus and C-C distance in km in given year corrected for demand and efficiency changes
-
     abatement_df_gwp_grey = pd.DataFrame(0, index=gwp.index, columns=gwp.columns)
     abatement_df_gwp_green = pd.DataFrame(0, index=gwp.index, columns=gwp.columns)
 
@@ -1667,90 +1623,3 @@ def claculate_additional_abatement_cost_hydrotreatment(
         )
 
     return abatement_cost_dfs
-
-
-""" def calculate_final_abatement_cost(abatement_costs_per_ton_eq,CONTRAIL_AVOIDANCE,HYDROTREATMENT, params_dict, tech="SAF"):
-    
-    if tech == "SAF":
-        abated_emissions_saf = params_dict["abated_emissions_saf"]
-        
-        if CONTRAIL_AVOIDANCE["SAF"]:
-            additional_abatement_costs_contrails_per_ton_eq = params_dict["additional_abatement_costs_contrails_per_ton_eq"]
-            abated_emissions_contrail_avoidance = params_dict["abated_emissions_contrail_avoidance"]
-            if HYDROTREATMENT["SAF"]:
-                abatement_costs_hydrotreatment = params_dict["abatement_costs_hydrotreatment"]
-                ht_abatement_dfs = params_dict["ht_abatement_dfs"]
-                for metric in abatement_costs_per_ton_eq.keys():
-                    if metric != "GWP_star":
-                        if ht_abatement_dfs["Green"].loc[f"{metric} SAF", "Total"] > 0:
-                            abatement_costs_per_ton_eq[metric] = (
-                                calculate_total_abatement_cost(
-                                    [
-                                        (
-                                            abatement_costs_per_ton_eq[metric],
-                                            abated_emissions_saf[metric],
-                                        ),
-                                        (
-                                            additional_abatement_costs_contrails_per_ton_eq[
-                                                f"{metric} SAF"
-                                            ],
-                                            abated_emissions_contrail_avoidance.loc[
-                                                f"{metric} SAF", "Total"
-                                            ],
-                                        ),
-                                        (
-                                            abatement_costs_hydrotreatment["Green"][
-                                                f"{metric} SAF"
-                                            ],
-                                            ht_abatement_dfs["Green"].loc[
-                                                f"{metric} SAF", "Total"
-                                            ],
-                                        ),
-                                    ]
-                                )
-                            )
-
-    elif tech == "Fossil":
-        abated_emissions_daccs = params_dict["abated_emissions_fossil"]
-        if CONTRAIL_AVOIDANCE["Fossil"]:
-            additional_abatement_costs_contrails_per_ton_eq = params_dict["additional_abatement_costs_contrails_per_ton_eq"]
-            abated_emissions_contrail_avoidance = params_dict["abated_emissions_contrail_avoidance"]
-            if HYDROTREATMENT["Fossil"]:
-                abatement_costs_hydrotreatment = params_dict["abatement_costs_hydrotreatment"]
-                ht_abatement_dfs = params_dict["ht_abatement_dfs"]
-                for metric in abatement_costs_per_ton_eq.keys():
-                    if metric != "GWP_star":
-                        if ht_abatement_dfs["Green"].loc[f"{metric} BAU", "Total"] > 0:
-                            abatement_costs_per_ton_eq[metric] = (
-                                calculate_total_abatement_cost(
-                                    [
-                                        (
-                                            abatement_costs_per_ton_eq[metric],
-                                            abated_emissions_daccs[metric],
-                                        ),
-                                        (
-                                            additional_abatement_costs_contrails_per_ton_eq[
-                                                f"{metric} BAU"
-                                            ],
-                                            abated_emissions_contrail_avoidance.loc[
-                                                f"{metric} BAU", "Total"
-                                            ],
-                                        ),
-                                        (
-                                            abatement_costs_hydrotreatment["Grey"][
-                                                f"{metric} BAU"
-                                            ],
-                                            ht_abatement_dfs["Green"].loc[
-                                                f"{metric} BAU", "Total"
-                                            ],
-                                        ),
-                                    ]
-                                )
-                            )
-
-    return abatement_costs_per_ton_eq
-
-
-
-
- """

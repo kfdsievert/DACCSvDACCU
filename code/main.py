@@ -1,6 +1,8 @@
 import functions
 import pandas as pd
 import copy
+from datetime import datetime
+import os
 
 
 # ---------------- Scenario Descriptions ----------------#
@@ -29,8 +31,7 @@ MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
 DENSITY_SAF = 0.803  # kg/L density of SAF
 DT = 20  # Years for GWP* calculation
 SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [
-    1.29e14,
-    1.29e14,
+    1.29e14
 ]  # Current estimate of ice particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
 SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
 CONTRAIL_REDUCTION = 0.64  # 80% reduction using maneuvers and 80% successful maneuvers = 64% reduction in contrails overall.
@@ -48,7 +49,7 @@ INFRA_COST_MULTIPLIER = (
 
 
 # Whether contrail avoidance is applied or not. Contrail Avoidance is ONLY applied in 2050 and not before.
-CONTRAIL_AVOIDANCE = {"Fossil": False, "SAF": False}
+CONTRAIL_AVOIDANCE = {"Fossil": True, "SAF": True}
 
 # Whether Hydrotreatment is applied or not. Only in 2050.
 HYDROTREATMENT = {"Fossil": True, "SAF": False}
@@ -326,6 +327,8 @@ if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
 
 # ---------------- Calculate abatement from hydrotreatment ----------------#
 
+abate_so2 = False  # SO2 abatement is not considered in this simulation
+
 ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     df_demand,
     hydrotreatment_emission_params,
@@ -335,7 +338,7 @@ ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     MJ_PER_L,
     ANNUAL_EFFICIENCY_CHANGE,
     N_YEARS,
-    abate_so2=False,
+    abate_so2=abate_so2,
     year=2050,
 )
 
@@ -392,27 +395,52 @@ for fuel_type in ["SAF", "Fossil"]:
 
 
 # ---------------- Export results ----------------#
-gwp_final.to_csv("outputs/gwp.csv")
-gwp_star.to_csv("outputs/gwp_star.csv")
+folder_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+    if CONTRAIL_AVOIDANCE ["Fossil"] and CONTRAIL_AVOIDANCE["SAF"]:
+        folder_name += "_Contrail_Avoidance_both"
+    elif CONTRAIL_AVOIDANCE["Fossil"]:
+        folder_name += "_Contrail_Avoidance_Fossil"
+    elif CONTRAIL_AVOIDANCE["SAF"]:
+        folder_name += "_Contrail_Avoidance_SAF"
+
+if HYDROTREATMENT["Fossil"] or HYDROTREATMENT["SAF"]:
+    if HYDROTREATMENT["Fossil"]:
+        folder_name += "_Hydrotreatment_Fossil"
+    elif HYDROTREATMENT["SAF"]:
+        folder_name += "_Hydrotreatment_SAF"
+    else:
+        folder_name += "_Hydrotreatment_both"
+    
+    if abate_so2:
+        folder_name += "_SO2_abated"
+    else:
+        folder_name += "_SO2_not_abated"
+
+save_path = f"outputs/{folder_name}"
+if not os.path.exists(save_path):
+    os.makedirs(save_path)
+gwp_final.to_csv(f"{save_path}/gwp.csv")
+gwp_star.to_csv(f"{save_path}/gwp_star.csv")
 
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
     abated_emissions_contrail_avoidance.to_csv(
-        "outputs/abated_emissions_contrail_avoidance.csv",
+        f"{save_path}/abated_emissions_contrail_avoidance.csv",
         mode="w",  # Overwrites the file
         index=False,  # Optional: Avoids writing row indices
     )
 
 if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
     for df_name, df in abatement_costs_hydrotreatment.items():
-        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv", mode="w", index=False)
+        df.to_csv(f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv", mode="w", index=False)
     for df_name, df in ht_abatement_dfs.items():
-        df.to_csv(f"outputs/{df_name}_Hydrogen_abatement_hydrotreatment.csv", mode="w", index=False)
+        df.to_csv(f"{save_path}/{df_name}_Hydrogen_abatement_hydrotreatment.csv", mode="w", index=False)
 
 for key, value in abatement_costs_saf_per_ton_eq.items():
-    value.to_csv(f"outputs/{key}_abatement_cost_saf.csv", mode="w", index=False)
+    value.to_csv(f"{save_path}/{key}_abatement_cost_saf.csv", mode="w", index=False)
 
 for key, value in abatement_costs_daccs_per_ton_eq.items():
-    value.to_csv(f"outputs/{key}_abatement_cost_daccs.csv", mode="w", index=False)
+    value.to_csv(f"{save_path}/{key}_abatement_cost_daccs.csv", mode="w", index=False)
 
 
 print("Simulation complete. Results exported to outputs folder.")
