@@ -308,7 +308,7 @@ abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_
 
 abated_emissions_daccs = copy.deepcopy(
     abated_emissions_saf
-)  # Equal emissions must be abated by both technologies.
+)  # Equal emissions are abated by both technologies.
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
     (
         additional_abatement_costs_contrails_per_ton_eq,
@@ -372,6 +372,9 @@ for fuel_type in ["SAF", "Fossil"]:
         cost_components = [(abatement_costs[metric], abated_emissions[metric])]
         
         if CONTRAIL_AVOIDANCE[fuel_type]:
+            abated_emissions[metric] += abated_emissions_contrail_avoidance.loc[
+                f"{metric} {fuel_label}", "Total"
+            ]
             cost_components.append(
                 (
                     additional_abatement_costs_contrails_per_ton_eq[f"{metric} {fuel_label}"],
@@ -380,6 +383,7 @@ for fuel_type in ["SAF", "Fossil"]:
             )
         
         if HYDROTREATMENT[fuel_type] and ht_abatement_dfs["Green"].loc[f"{metric} {fuel_label}", "Total"] > 0:
+            abated_emissions[metric] += ht_abatement_dfs["Green"].loc[f"{metric} {fuel_label}", "Total"]
             gwp_final.loc[gwp_final.index.str.contains(fuel_label), :] = (
                 gwp.loc[gwp.index.str.contains(fuel_label), :] -
                 ht_abatement_dfs["Green"].loc[ht_abatement_dfs["Green"].index.str.contains(fuel_label), :]
@@ -393,7 +397,7 @@ for fuel_type in ["SAF", "Fossil"]:
         
         abatement_costs[metric] = functions.calculate_total_abatement_cost(cost_components)
 
-
+abated_emissions_dict = {"SAF": abated_emissions_saf, "DACCS": abated_emissions_daccs}
 # ---------------- Export results ----------------#
 folder_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
@@ -422,7 +426,12 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 gwp_final.to_csv(f"{save_path}/gwp.csv")
 gwp_star.to_csv(f"{save_path}/gwp_star.csv")
-
+for df_name,abated_emissions in abated_emissions_dict.items():
+    abated_emissions.to_csv(
+        f"{save_path}/abated_emissions_{df_name}.csv",
+        mode="w",  # Overwrites the file
+        index=False,  # Optional: Avoids writing row indices
+    )
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
     abated_emissions_contrail_avoidance.to_csv(
         f"{save_path}/abated_emissions_contrail_avoidance.csv",
