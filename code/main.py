@@ -327,7 +327,7 @@ if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
 
 # ---------------- Calculate abatement from hydrotreatment ----------------#
 
-abate_so2 = False  # SO2 abatement is not considered in this simulation
+abate_so2 = False # Whether SO2 abatement is considered in this simulation. Save file is named accordingly
 
 ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     df_demand,
@@ -342,7 +342,7 @@ ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
     year=2050,
 )
 
-# ---------------- Add hydrotreatment costs ----------------#
+# ---------------- Calculate abatement cost for hydrotreatment ----------------#
 
 hydrotreatment_costs = functions.calculate_hydrotreatment_cost(
     df_demand, hydrotreatment_cost_params, DENSITY_SAF, MJ_PER_L
@@ -353,10 +353,11 @@ hydrotreatment_costs["Green"] = (
 )  # 35% additional CAPEX for green H2
 
 abatement_costs_hydrotreatment = (
-    functions.claculate_additional_abatement_cost_hydrotreatment(
+    functions.calculate_additional_abatement_cost_hydrotreatment(
         hydrotreatment_costs, ht_abatement_dfs
     )
 )
+
 
 # Update abatement costs for contrail avoidance and hydrotreatment.
 gwp_final = copy.deepcopy(gwp)
@@ -395,9 +396,26 @@ for fuel_type in ["SAF", "Fossil"]:
                 )
             )
         
-        abatement_costs[metric] = functions.calculate_total_abatement_cost(cost_components)
+        abatement_costs[metric] = functions.calculate_weighted_abatement_cost(cost_components)
 
 abated_emissions_dict = {"SAF": abated_emissions_saf, "DACCS": abated_emissions_daccs}
+
+# ---------------- Abate remaining emissions with DACCS ----------------#
+remaining_emissions_saf, remaining_emissions_daccs =  functions.calculate_daccs_cost_remaining_emissions(gwp_baseline,gwp_star, abated_emissions_dict, abatement_curve_daccs)
+
+for tech in ["SAF", "DACCS"]:
+    abated_emissions = abated_emissions_saf if tech == "SAF" else abated_emissions_daccs
+    remaining_emissions = remaining_emissions_saf if tech == "SAF" else remaining_emissions_daccs
+    abatement_cost = abatement_costs_saf_per_ton_eq if tech == "SAF" else abatement_costs_daccs_per_ton_eq
+    abatement_cost_daccs = abatement_curve_daccs.iloc[-1,:]
+
+    for metric in abatement_cost.keys():
+        if metric == "GWP_star":
+            continue
+        abatement_cost[metric] = (abatement_cost[metric] * abated_emissions[metric] + abatement_cost_daccs * remaining_emissions[metric]) / (abated_emissions[metric] + remaining_emissions[metric])
+        abated_emissions[metric] += remaining_emissions[metric]
+
+
 # ---------------- Export results ----------------#
 folder_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
@@ -427,6 +445,7 @@ if not os.path.exists(save_path):
 gwp_final.to_csv(f"{save_path}/gwp.csv")
 gwp_star.to_csv(f"{save_path}/gwp_star.csv")
 for df_name,abated_emissions in abated_emissions_dict.items():
+    abated_emissions = pd.DataFrame(abated_emissions, index = [0])
     abated_emissions.to_csv(
         f"{save_path}/abated_emissions_{df_name}.csv",
         mode="w",  # Overwrites the file

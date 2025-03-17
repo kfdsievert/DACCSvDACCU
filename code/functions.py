@@ -1394,7 +1394,7 @@ def calculate_additional_abatement_cost_contrail_avoidance(
 
     return additional_abatement_cost_per_t, abated_emissions_contrail_avoidance, additional_cost_breakdown
 
-def calculate_total_abatement_cost(emission_components: List[Tuple[float, float]]):
+def calculate_weighted_abatement_cost(emission_components: List[Tuple[float, float]]):
 
     total_abated_emissions = 0
     total_abatement_cost = 0
@@ -1423,7 +1423,7 @@ def initialize_hydrotreatment_cost_params():
     """
 
     h2_requirement_green_h2 = 42.7  # m3/ton of fuel
-    elec_requirement_green_h2 = 18.3  # kWh/ton of fuel, reclaculated
+    elec_requirement_green_h2 = 18.3  # kWh/ton of fuel, recalculated
     ng_price = 0.23  # €/m3 in 2050
     elec_price = 0.05  # €/kWh in 2050
     h2_price_kg = 3.2  # €/kg in 2050
@@ -1612,7 +1612,7 @@ def calculate_additional_abatement_hydrotreatment(
     return ht_abatement_dfs
 
 
-def claculate_additional_abatement_cost_hydrotreatment(
+def calculate_additional_abatement_cost_hydrotreatment(
     total_cost_hydrotreatment, ht_abatement_dfs
 ):
     abatement_cost_dfs = {}
@@ -1623,3 +1623,22 @@ def claculate_additional_abatement_cost_hydrotreatment(
         )
 
     return abatement_cost_dfs
+
+def calculate_daccs_cost_remaining_emissions(gwp_baseline,gwp_star,abated_emissions_dict,abatement_curve_daccs):
+
+    abated_emissions_saf = abated_emissions_dict["SAF"]
+    abated_emissions_daccs = abated_emissions_dict["DACCS"]
+
+    remaining_emissions_saf = {key:0 for key in abated_emissions_saf.keys()}
+    remaining_emissions_daccs = {key:0 for key in abated_emissions_daccs.keys()}
+
+    emissions = [(abated_emissions_saf,remaining_emissions_saf), (abated_emissions_daccs, remaining_emissions_daccs)]
+
+    for abated_emissions, remaining_emissions in emissions:
+        for metric in remaining_emissions.keys():
+            if metric != "GWP_star":
+                remaining_emissions[metric] = gwp_baseline.loc[f"{metric} BAU", "Total"] - abated_emissions[metric] # in Mt CO2eq
+            else:
+                remaining_emissions[metric] = gwp_star.loc["GWP* BAU", "Total"] - abated_emissions[metric] # in Mt CO2eq
+    
+    return remaining_emissions_saf, remaining_emissions_daccs
