@@ -1,5 +1,6 @@
 import functions
 import pandas as pd
+import numpy as np
 import copy
 from datetime import datetime
 import os
@@ -31,7 +32,7 @@ MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
 DENSITY_SAF = 0.803  # kg/L density of SAF
 DT = 20  # Years for GWP* calculation
 SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [
-    1.29e14
+    1e15
 ]  # Current estimate of ice particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
 SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
 CONTRAIL_REDUCTION = 0.64  # 80% reduction using maneuvers and 80% successful maneuvers = 64% reduction in contrails overall.
@@ -98,6 +99,8 @@ ERF_FACTORS = {
     "Contrail Cirrus and C-C": 9.36e-10,  # mW/m²/km
 }
 
+
+
 # ---------------- Generate aviation demand ----------------#
 df_demand = functions.generate_aviation_demand(
     base_inputs, ANNUAL_DEMAND_GROWTH_RATE, ANNUAL_EFFICIENCY_CHANGE, N_YEARS
@@ -145,12 +148,12 @@ emission_factors_base["SAF"]["Contrail Cirrus and C-C"], rf_factor_ht_saf_base =
         CONTRAIL_REDUCTION=0,
         HYDROTREATMENT={"Fossil": False, "SAF": False},
         ht_emission_params=hydrotreatment_emission_params,
-        show_plots=False,
+        show_plots=True,
         tech="SAF",
     )
 )
 
-emission_factors_base["Fossil"]["Contrail Cirrus and C-C"], rf_factor_h_fossil_base = (
+emission_factors_base["Fossil"]["Contrail Cirrus and C-C"], rf_factor_ht_fossil_base = (
     functions.update_emission_factors(
         N_YEARS,
         ANNUAL_EFFICIENCY_CHANGE,
@@ -265,13 +268,23 @@ gwp_star.loc["GWP* BAU", "CO2"] = float(gwp_100.loc["GWP100 BAU", "CO2"])
 # Total emissions by summing up rows
 gwp_star.loc[:, "Total"] = gwp_star.sum(axis=1)
 
+# ---------------- Initialize abated emissions storage ----------------#
+abated_emissions_index = ["GWP100 SAF", "GWP20 SAF", "GWP* SAF", "GWP100 Contrail Avoidance BAU", "GWP100 Contrail Avoidance SAF", "GWP20 Contrail Avoidance BAU", "GWP20 Contrail Avoidance SAF", "GWP100 Hydrotreatment", "GWP20 Hydrotreatment"]
+abated_emissions_cols = gwp.columns
+abated_emissions_main_df = pd.DataFrame(index=abated_emissions_index, columns=abated_emissions_cols) # Shows percentage change in CO2 equivalents for each abatement method.
+
+abated_emissions_main_df.loc["GWP100 SAF", :] = ((gwp_baseline.loc["GWP100 SAF", :] - gwp_baseline.loc["GWP100 BAU",:])* 100) / gwp_baseline.loc["GWP100 BAU", :]
+abated_emissions_main_df.loc["GWP20 SAF", :] = ((gwp_baseline.loc["GWP20 SAF", :] - gwp_baseline.loc["GWP20 BAU",:] )* 100) / gwp_baseline.loc["GWP20 BAU", :]
+abated_emissions_main_df.loc["GWP* SAF", :] = (gwp_star.loc["GWP* SAF", :] - gwp_star.loc["GWP* BAU",:]) * 100  / gwp_star.loc["GWP* BAU", :]
+
+abated_emissions_main_df.loc[:,"SO2"] *= - 1 # Account for cooling effect of SO2
+
 # ---------------- Calculate abatement costs ----------------#
 # Cost of deploying SAF to abate total emissions from aviation in 2050.
 # The cost is is calculated by multiplying the abatement cost ($/tCO2) with the total emissions (tCO2) in 2050.
 abatement_cost_saf = functions.calculate_abatement_cost_saf(
     abatement_curve_saf, gwp_100_baseline, 2050, SIMULATION_START
 )
-
 # Cost of abating residualS SAF emissions using DACCS
 residual_abatement_cost_saf = functions.calculate_residual_abatement_saf(
     residual_emissions_saf,
@@ -323,6 +336,10 @@ if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         FUEL_PRICE_2050,
         MJ_PER_L,
     )
+    abated_emissions_main_df.loc["GWP100 Contrail Avoidance BAU", :] = (abated_emissions_contrail_avoidance.loc["GWP100 BAU", :] * -100) / gwp_baseline.loc["GWP100 BAU", :]
+    abated_emissions_main_df.loc["GWP100 Contrail Avoidance SAF", :] = (abated_emissions_contrail_avoidance.loc["GWP100 BAU", :] * -100) / gwp_baseline.loc["GWP100 BAU", :]
+    abated_emissions_main_df.loc["GWP20 Contrail Avoidance BAU", :] =  (abated_emissions_contrail_avoidance.loc["GWP20 BAU", :] * -100) / gwp_baseline.loc["GWP20 BAU", :]
+    abated_emissions_main_df.loc["GWP20 Contrail Avoidance SAF", :] =  (abated_emissions_contrail_avoidance.loc["GWP20 BAU", :] * -100) / gwp_baseline.loc["GWP20 BAU", :]
 
 
 # ---------------- Calculate abatement from hydrotreatment ----------------#
@@ -358,6 +375,8 @@ abatement_costs_hydrotreatment = (
     )
 )
 
+abated_emissions_main_df.loc["GWP100 Hydrotreatment", :] = (ht_abatement_dfs["Green"].loc["GWP100 BAU", :] * -100) / gwp.loc["GWP100 BAU", :]
+abated_emissions_main_df.loc["GWP20 Hydrotreatment", :] = (ht_abatement_dfs["Green"].loc["GWP20 BAU", :] * -100) / gwp.loc["GWP20 BAU", :]
 
 # Update abatement costs for contrail avoidance and hydrotreatment.
 gwp_final = copy.deepcopy(gwp)
@@ -462,13 +481,13 @@ if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
     for df_name, df in abatement_costs_hydrotreatment.items():
         df.to_csv(f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv", mode="w", index=False)
     for df_name, df in ht_abatement_dfs.items():
-        df.to_csv(f"{save_path}/{df_name}_Hydrogen_abatement_hydrotreatment.csv", mode="w", index=False)
+        df.to_csv(f"{save_path}/{df_name}_Hydrogen_abated_emissions_hydrotreatment.csv", mode="w", index=False)
 
 for key, value in abatement_costs_saf_per_ton_eq.items():
     value.to_csv(f"{save_path}/{key}_abatement_cost_saf.csv", mode="w", index=False)
 
 for key, value in abatement_costs_daccs_per_ton_eq.items():
     value.to_csv(f"{save_path}/{key}_abatement_cost_daccs.csv", mode="w", index=False)
-
+abated_emissions_main_df.to_csv(f"{save_path}/abated_emissions_percent.csv", mode="w", index=True)
 
 print("Simulation complete. Results exported to outputs folder.")

@@ -1234,7 +1234,7 @@ def update_emission_factors(
 
         if HYDROTREATMENT["Fossil"]:
             future_soot_particles_ht = (
-                future_soot_particles / ht_emission_params["BC Grey"]
+                future_soot_particles * ht_emission_params["BC Grey"]
             )
 
         else:
@@ -1266,7 +1266,9 @@ def update_emission_factors(
     rf_factors_ht = vectorized_calculate_normalised_rf(
         normalised_nucleated_ice_particles_ht
     )
-    rf_factors_ht = np.min(rf_factors_ht)
+    rf_factors_ht_median = np.median(rf_factors_ht)
+    rf_factors_ht_std = np.std(rf_factors_ht)
+    rf_factors_ht = ufloat(rf_factors_ht_median, rf_factors_ht_std)
 
     if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
         rf_factors = rf_factors - CONTRAIL_REDUCTION
@@ -1587,13 +1589,8 @@ def calculate_additional_abatement_hydrotreatment(
                             * emission_params[f"{component} {df_name}"] 
                         )
                     elif component == "Contrail Cirrus and C-C":
-                        df.loc[f"{metric} {scenario}", component] = nominal_value(
-                            gwp.loc[f"{metric} {scenario}", component]
-                            - (
-                                gwp.loc[f"{metric} {scenario}", component]
-                                * rf_factors[scenario]
-                            )
-                        )
+                        df.loc[f"{metric} {scenario}", component] = np.array(
+                            gwp.loc[f"{metric} {scenario}", component] * (1-rf_factors[scenario]))
     for df in ht_abatement_dfs.values():
         df.loc[:,"CO2"] = df.loc[:,"CO2"].replace(0, df.loc["GWP100 BAU","CO2"])
     
