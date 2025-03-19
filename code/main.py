@@ -329,6 +329,10 @@ def main (contrail_avoidance, hydrotreatment):
     abated_emissions_daccs = copy.deepcopy(
         abated_emissions_saf
     )  # Equal emissions are abated by both technologies.
+
+    abated_emissions_main_df_abs.loc["GWP100 BAU DACCS", "Total"] = abated_emissions_daccs["GWP100"]
+    abated_emissions_main_df_abs.loc["GWP20 BAU DACCS", "Total"] = abated_emissions_daccs["GWP20"]
+
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         (
             additional_abatement_costs_contrails_per_ton_eq,
@@ -438,9 +442,18 @@ def main (contrail_avoidance, hydrotreatment):
             abatement_costs[metric] = functions.calculate_weighted_abatement_cost(cost_components)
 
     abated_emissions_dict = {"SAF": abated_emissions_saf, "DACCS": abated_emissions_daccs}
-
     # ---------------- Abate remaining emissions with DACCS ----------------#
     remaining_emissions_saf, remaining_emissions_daccs =  functions.calculate_daccs_cost_remaining_emissions(gwp_baseline,gwp_star, abated_emissions_dict, abatement_curve_daccs)
+
+    abated_emissions_main_df_abs.loc["GWP100 BAU DACCS", "Total"] += remaining_emissions_daccs["GWP100"]
+    abated_emissions_main_df_abs.loc["GWP20 BAU DACCS", "Total"] += remaining_emissions_daccs["GWP20"]
+    abated_emissions_main_df_abs.loc["GWP100 SAF DACCS", "Total"] = remaining_emissions_saf["GWP100"]
+    abated_emissions_main_df_abs.loc["GWP20 SAF DACCS", "Total"] = remaining_emissions_saf["GWP20"]
+
+    abated_emissions_main_df_pct.loc["GWP100 BAU DACCS", "Total"] = (abated_emissions_main_df_abs.loc["GWP100 BAU DACCS", "Total"] * -100) / gwp_baseline.loc["GWP100 BAU", "Total"]
+    abated_emissions_main_df_pct.loc["GWP20 BAU DACCS", "Total"] = (abated_emissions_main_df_abs.loc["GWP20 BAU DACCS", "Total"] * -100) / gwp_baseline.loc["GWP20 BAU", "Total"]
+    abated_emissions_main_df_pct.loc["GWP100 SAF DACCS", "Total"] = (abated_emissions_main_df_abs.loc["GWP100 SAF DACCS", "Total"] * -100) / gwp_baseline.loc["GWP100 BAU", "Total"]
+    abated_emissions_main_df_pct.loc["GWP20 SAF DACCS", "Total"] = (abated_emissions_main_df_abs.loc["GWP20 SAF DACCS", "Total"] * -100) / gwp_baseline.loc["GWP20 BAU", "Total"]
 
     for tech in ["SAF", "DACCS"]:
         abated_emissions = abated_emissions_saf if tech == "SAF" else abated_emissions_daccs

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from uncertainties import ufloat, nominal_value
+from uncertainties import ufloat
 from fair.forward import fair_scm
 from fair.inverse import inverse_fair_scm
 from scipy.optimize import curve_fit
