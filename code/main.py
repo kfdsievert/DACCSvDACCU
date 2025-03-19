@@ -3,6 +3,7 @@ import pandas as pd
 import copy
 from datetime import datetime
 import os
+import itertools
 import time
 
 def main (contrail_avoidance, hydrotreatment):
