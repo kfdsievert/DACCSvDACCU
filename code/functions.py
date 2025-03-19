@@ -1448,16 +1448,19 @@ def initialize_hydrotreatment_emission_params():
     baseline_so2 = 0.2432  # g/l of fuel
     baseline_co2_per_l = 2.59  # kg/l
     baseline_bc = 0.024  # g/l of fuel
+    baseline_h2 = 1 # Baseline taken as 1
 
     # Emissions from Hydrotreated Jet A-1 with grey hydrogen
     ht_so2_grey = 0.0111  # g/l of fuel
     ht_co2_per_l_grey = 2.55  # kg/l
     ht_bc_grey = 0.01656 #reduction by 31% in line with SAF
+    ht_h2_grey = 1.12 # 12 % increase as for SAF
 
     # Emissions from Hydrotreated Jet A-1 with green hydrogen
     ht_so2_green = 0.0111
     ht_co2_per_l_green = 2.55
     ht_bc_green = 0.01656 #reduction by 31% in line with SAF
+    ht_h2_green = 1.12
 
     additional_co2_emissions_ht_grey = 0.14
     additional_co2_emissions_ht_green = 0.01
@@ -1469,10 +1472,12 @@ def initialize_hydrotreatment_emission_params():
     relative_so2_grey = ht_so2_grey / baseline_so2
     relative_co2_grey = ht_co2_per_l_grey_net / baseline_co2_per_l
     relative_bc_grey = ht_bc_grey / baseline_bc
+    relative_h2_grey = ht_h2_grey / baseline_h2
 
     relative_so2_green = ht_so2_green / baseline_so2
     relative_co2_green = ht_co2_per_l_green_net / baseline_co2_per_l
     relative_bc_green = ht_bc_green / baseline_bc
+    relative_h2_green = ht_h2_green / baseline_h2
 
     emissions_params = {
         "SO2 Grey": relative_so2_grey,
@@ -1481,6 +1486,8 @@ def initialize_hydrotreatment_emission_params():
         "SO2 Green": relative_so2_green,
         "CO2 Green": relative_co2_green,
         "BC Green": relative_bc_green,
+        "H2 Grey": relative_h2_grey,
+        "H2 Green": relative_h2_green,
     }
 
     return emissions_params
