@@ -6,7 +6,7 @@ import os
 import itertools
 import time
 
-def main (contrail_avoidance, hydrotreatment):
+def main (contrail_avoidance, hydrotreatment,abate_so2):
 
     # ---------------- Scenario Descriptions ----------------#
     # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
@@ -362,7 +362,7 @@ def main (contrail_avoidance, hydrotreatment):
 
     # ---------------- Calculate abatement from hydrotreatment ----------------#
 
-    abate_so2 = False # Whether SO2 abatement is considered in this simulation. Save file is named accordingly
+    
 
     ht_abatement_dfs = functions.calculate_additional_abatement_hydrotreatment(
         df_demand,
@@ -373,7 +373,7 @@ def main (contrail_avoidance, hydrotreatment):
         MJ_PER_L,
         ANNUAL_EFFICIENCY_CHANGE,
         N_YEARS,
-        abate_so2=abate_so2,
+        abate_so2=abate_so2, # Whether SO2 abatement is considered in this simulation. Save file is named accordingly
         year=2050,
     )
 
@@ -528,14 +528,20 @@ def main (contrail_avoidance, hydrotreatment):
 
     # Abated emissions by technology as absolute values (MtCO2eq) and percentage change from BAU 
     abated_emissions_main_df_pct.to_csv(f"{save_path}/abated_emissions_percent.csv", mode="w", index=True)
+    abated_emissions_main_df_abs = abated_emissions_main_df_abs * -1
     abated_emissions_main_df_abs.to_csv(f"{save_path}/abated_emissions_abs.csv", mode="w", index=True)
+
+    print(contrail_avoidance, hydrotreatment, abate_so2, folder_name)
 
     print("Simulation complete. Results exported to outputs folder.")
 
 contrail_avoidance_options = [{"Fossil": True, "SAF": True}, {"Fossil": False, "SAF": False}]
 hydrotreatment_options = [{"Fossil": True, "SAF": False}, {"Fossil": False, "SAF": False}]
+so2_abatement_options = [True, False]
 
-for contrail_avoidance, hydrotreatment in itertools.product(contrail_avoidance_options, hydrotreatment_options):
-    main(contrail_avoidance, hydrotreatment)
+for contrail_avoidance, hydrotreatment, abate_so2 in itertools.product(contrail_avoidance_options, hydrotreatment_options, so2_abatement_options):
+    if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
+        continue
+    main(contrail_avoidance, hydrotreatment, abate_so2)
     # Sleep 2 seconds to avoid conflicting save files
     time.sleep(2)

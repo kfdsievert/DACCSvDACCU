@@ -1546,7 +1546,7 @@ def calculate_additional_abatement_hydrotreatment(
     MJ_PER_L,
     ANNUAL_EFFICIENCY_CHANGE,
     N_YEARS,
-    abate_so2=False,
+    abate_so2,
     year=2050,
 ):
     GWP_metrics = {
