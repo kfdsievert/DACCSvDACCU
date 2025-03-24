@@ -39,7 +39,7 @@ def main (contrail_avoidance, hydrotreatment,abate_so2):
     SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
     CONTRAIL_REDUCTION = 0.64  # 80% reduction using maneuvers and 80% successful maneuvers = 64% reduction in contrails overall.
     REROUTING_FUEL_PENALTY = 0.001  # 0.1% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
-    FUEL_PRICE_2050 = 1.54  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
+    FUEL_PRICE_2050 = 0.8  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
     FLEET_SIZE_2025 = 28400  # Approximate fleet size of passenger aircraft in 2025 (Oliver Wyman: https://www.oliverwyman.com/our-expertise/insights/2024/feb/global-fleet-and-mro-market-forecast-2024-2034.html)
     HUMIDITY_SENSOR_COST = 100000  # CAPEX of humidity sensor per aircraft in $
     HUMIDITY_SENSOR_LIFE = 5  # Life of humidity sensor in years
@@ -469,71 +469,121 @@ def main (contrail_avoidance, hydrotreatment,abate_so2):
 
 
     # ---------------- Export results ----------------#
-    folder_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    folder_name = datetime.now().strftime("%Y-%m-%d_%H")
+    scenario_name = ""
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         if CONTRAIL_AVOIDANCE ["Fossil"] and CONTRAIL_AVOIDANCE["SAF"]:
-            folder_name += "_Contrail_Avoidance_both"
+            scenario_name += "CA_both"
         elif CONTRAIL_AVOIDANCE["Fossil"]:
-            folder_name += "_Contrail_Avoidance_Fossil"
+            scenario_name += "CA_Fossil"
         elif CONTRAIL_AVOIDANCE["SAF"]:
-            folder_name += "_Contrail_Avoidance_SAF"
+            scenario_name += "CA_SAF"
+        else:
+            scenario_name += "CA_none"
 
     if HYDROTREATMENT["Fossil"] or HYDROTREATMENT["SAF"]:
+        if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+            scenario_name += "_"
         if HYDROTREATMENT["Fossil"]:
-            folder_name += "_Hydrotreatment_Fossil"
+            scenario_name += "HT_Fossil"
         elif HYDROTREATMENT["SAF"]:
-            folder_name += "_Hydrotreatment_SAF"
+            scenario_name += "HT_SAF"
         else:
-            folder_name += "_Hydrotreatment_both"
+            scenario_name += "HT_both"
         
         if abate_so2:
-            folder_name += "_SO2_abated"
+            scenario_name += "_SO2_y"
         else:
-            folder_name += "_SO2_not_abated"
+            scenario_name += "_SO2_n"
+
+    if scenario_name == "":
+        scenario_name = "Base Case"
 
     save_path = f"outputs/{folder_name}"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-    gwp_final.to_csv(f"{save_path}/gwp.csv")
+    gwp_baseline.to_csv(f"{save_path}/gwp_baseline.csv")
     gwp_star.to_csv(f"{save_path}/gwp_star.csv")
+
     for df_name,abated_emissions in abated_emissions_dict.items():
         abated_emissions = pd.DataFrame(abated_emissions, index = [0])
-        abated_emissions.to_csv(
-            f"{save_path}/abated_emissions_{df_name}.csv",
-            mode="w",  # Overwrites the file
-            index=False,  # Optional: Avoids writing row indices
+
+        functions.save_excel(
+            abated_emissions,
+            f"{save_path}/abated_emissions_{df_name}.xlsx",
+            index=False,
+            scenario_name=scenario_name[:31]
         )
+
+
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
-        abated_emissions_contrail_avoidance.to_csv(
-            f"{save_path}/abated_emissions_contrail_avoidance.csv",
-            mode="w",  # Overwrites the file
-            index=False,  # Optional: Avoids writing row indices
+
+        functions.save_excel(abated_emissions_contrail_avoidance,
+                             f"{save_path}/abated_emissions_contrail_avoidance.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31]
         )
 
     if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
         for df_name, df in abatement_costs_hydrotreatment.items():
-            df.to_csv(f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.csv", mode="w", index=False)
+
+            functions.save_excel(df,
+                                 f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.xlsx",
+                index=True,
+                scenario_name=scenario_name[:31]
+            )
+
         for df_name, df in ht_abatement_dfs.items():
-            df.to_csv(f"{save_path}/{df_name}_Hydrogen_abated_emissions_hydrotreatment.csv", mode="w", index=False)
+
+            functions.save_excel(df,
+                                    f"{save_path}/{df_name}_Hydrogen_abated_emissions_hydrotreatment.xlsx",
+                    index=True,
+                    scenario_name=scenario_name[:31]
+                )
+
 
     for key, value in abatement_costs_saf_per_ton_eq.items():
         value = pd.DataFrame(value, index = value.index)
         value.rename(columns = {24: "Abatement Cost $ per tCO2eq"}, inplace=True)
-        value.to_csv(f"{save_path}/{key}_abatement_cost_saf.csv", mode="w", index=False)
+
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_costs_saf_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31]
+        )
 
     for key, value in abatement_costs_daccs_per_ton_eq.items():
         value = pd.DataFrame(value, index = value.index)
         value.rename(columns = {24: "Abatement Cost $ per tCO2eq"}, inplace=True)
-        value.to_csv(f"{save_path}/{key}_abatement_cost_daccs.csv", mode="w", index=True)
+
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_costs_daccs_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31]
+        )
 
     # Abated emissions by technology as absolute values (MtCO2eq) and percentage change from BAU 
-    abated_emissions_main_df_pct.to_csv(f"{save_path}/abated_emissions_percent.csv", mode="w", index=True)
+
+    functions.save_excel(
+        abated_emissions_main_df_abs,
+        f"{save_path}/abated_emissions_abs.xlsx",
+        index=True,
+        scenario_name=scenario_name[:31]
+    )
+
     abated_emissions_main_df_abs = abated_emissions_main_df_abs * -1
-    abated_emissions_main_df_abs.to_csv(f"{save_path}/abated_emissions_abs.csv", mode="w", index=True)
 
-    print(contrail_avoidance, hydrotreatment, abate_so2, folder_name)
+    functions.save_excel(
+        abated_emissions_main_df_pct,
+        f"{save_path}/abated_emissions_pct.xlsx",
+        index=True,
+        scenario_name=scenario_name[:31]
+    )
 
-    print("Simulation complete. Results exported to outputs folder.")
+    print(f"Simulation completed for scenario: {scenario_name}. Results exported to the outputs folder.")
 
 contrail_avoidance_options = [{"Fossil": True, "SAF": True}, {"Fossil": False, "SAF": False}]
 hydrotreatment_options = [{"Fossil": True, "SAF": False}, {"Fossil": False, "SAF": False}]

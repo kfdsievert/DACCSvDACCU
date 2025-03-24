@@ -7,6 +7,8 @@ from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from typing import List, Tuple
+from datetime import datetime
+import os
 global EUR_USD
 EUR_USD = 1.12 # 1 EUR = 1.12 USD, FRED (2024)
 
@@ -1646,3 +1648,17 @@ def calculate_daccs_cost_remaining_emissions(gwp_baseline,gwp_star,abated_emissi
                 remaining_emissions[metric] = gwp_star.loc["GWP* BAU", "Total"] - abated_emissions[metric] # in Mt CO2eq
     
     return remaining_emissions_saf, remaining_emissions_daccs
+
+
+def save_excel (df, path, index, scenario_name):
+
+    if not os.path.exists(path):
+        df.to_excel(path, index=index, sheet_name=scenario_name[:31])
+
+    else: 
+        with pd.ExcelWriter(path,
+                            mode = "a",
+                            engine="openpyxl",
+                            if_sheet_exists="replace") as writer:
+            df.to_excel(writer, index=index, sheet_name=scenario_name[:31])
+    
