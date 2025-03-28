@@ -1,16 +1,16 @@
 import pandas as pd
 import numpy as np
-from uncertainties import ufloat
+from uncertainties import ufloat, UFloat
 from fair.forward import fair_scm
 from fair.inverse import inverse_fair_scm
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from typing import List, Tuple
-from datetime import datetime
 import os
+
 global EUR_USD
-EUR_USD = 1.12 # 1 EUR = 1.12 USD, FRED (2024)
+EUR_USD = 1.12  # 1 EUR = 1.12 USD, FRED (2024)
 
 
 def load_input_abatement_cost(file_path, tech):
@@ -38,13 +38,28 @@ def load_input_abatement_cost(file_path, tech):
         cost_col = "Fully Harmonized NET REMOVED COST (incl T&S"
         skiprows = 1
         year_col = "Year of Assumptions in Study"
-        filter_rows = ["Young et al. 2023", "Sievert et al. 2024", "Fasihi et al. 2019", "Pett-Ridge et al. 2024", "Keith et al. 2018"]
+        filter_rows = [
+            "Young et al. 2023",
+            "Sievert et al. 2024",
+            "Fasihi et al. 2019",
+            "Pett-Ridge et al. 2024",
+            "Keith et al. 2018",
+        ]
     elif tech == "SAF":
         cost_col = "Fully Harmonized"
         skiprows = 0
         year_col = "Year of Cost"
-        filter_rows = ["Brazzola et al. ","Gray et al.","Marchese et.al. ","Martin et. al.","Moretti et al.","Peacock et. al.",
-                       "Schmidt et. al.","Seymour et al.","Sherwin"]
+        filter_rows = [
+            "Brazzola et al. ",
+            "Gray et al.",
+            "Marchese et.al. ",
+            "Martin et. al.",
+            "Moretti et al.",
+            "Peacock et. al.",
+            "Schmidt et. al.",
+            "Seymour et al.",
+            "Sherwin",
+        ]
         return_residual_emissions = True
 
     # First row is headers and is skipped
@@ -56,7 +71,9 @@ def load_input_abatement_cost(file_path, tech):
         input_abatement_cost_low = pd.read_excel(
             file_path, sheet_name="Low CO2", skiprows=skiprows, index_col=0
         )
-        input_abatement_cost_low = input_abatement_cost_low.loc[input_abatement_cost_low.index.isin(filter_rows),:]
+        input_abatement_cost_low = input_abatement_cost_low.loc[
+            input_abatement_cost_low.index.isin(filter_rows), :
+        ]
         input_abatement_cost_high = pd.read_excel(
             file_path, sheet_name="High CO2", skiprows=skiprows, index_col=0
         )
@@ -959,7 +976,7 @@ def calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gw
         "GWP100": abated_emissions_gwp_100 / 10**6,
         "GWP20": abated_emissions_gwp_20 / 10**6,
         "GWP_star": abated_emissions_gwp_star / 10**6,
-    } # Abated emissions in Mt
+    }  # Abated emissions in Mt
 
     return abatement_costs_saf, abated_emissions_saf
 
@@ -1025,7 +1042,6 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
         "GWP20": abatement_cost_daccs_per_ton_gwp_20,
         "GWP_star": abatement_cost_daccs_per_ton_gwp_star,
     }
-
 
     return abatement_costs_daccs
 
@@ -1278,8 +1294,12 @@ def update_emission_factors(
     if CONTRAIL_AVOIDANCE["Fossil"] and tech == "Fossil":
         rf_factors = rf_factors - CONTRAIL_REDUCTION
 
-    nominal_rf_factor = np.median(rf_factors)
-    std_rf_factor = np.std(rf_factors)
+    if isinstance(rf_factors[0][0], UFloat):
+        nominal_rf_factor = np.median(rf_factors).nominal_value
+        std_rf_factor = rf_factors[0][0].std_dev
+    else:
+        nominal_rf_factor = np.median(rf_factors)
+        std_rf_factor = np.std(rf_factors)
     new_contrail_factor = ufloat(nominal_rf_factor, std_rf_factor)
 
     return new_contrail_factor, rf_factors_ht
@@ -1391,15 +1411,23 @@ def calculate_additional_abatement_cost_contrail_avoidance(
         abated_emissions_contrail_avoidance["Total"] * 10**6
     )
 
-    additional_cost_breakdown = pd.DataFrame({
-        "CAPEX": (contrail_avoidance_capex / additional_abatement_cost) * additional_abatement_cost_per_t,
-        "Fuel Cost": (fuel_cost_additional / additional_abatement_cost) * additional_abatement_cost_per_t
-    })
+    additional_cost_breakdown = pd.DataFrame(
+        {
+            "CAPEX": (contrail_avoidance_capex / additional_abatement_cost)
+            * additional_abatement_cost_per_t,
+            "Fuel Cost": (fuel_cost_additional / additional_abatement_cost)
+            * additional_abatement_cost_per_t,
+        }
+    )
 
-    return additional_abatement_cost_per_t, abated_emissions_contrail_avoidance, additional_cost_breakdown
+    return (
+        additional_abatement_cost_per_t,
+        abated_emissions_contrail_avoidance,
+        additional_cost_breakdown,
+    )
+
 
 def calculate_weighted_abatement_cost(emission_components: List[Tuple[float, float]]):
-
     total_abated_emissions = 0
     total_abatement_cost = 0
     numerator = 0
@@ -1407,12 +1435,10 @@ def calculate_weighted_abatement_cost(emission_components: List[Tuple[float, flo
     for abatement_cost, abated_emissions in emission_components:
         total_abated_emissions += abated_emissions
         numerator += abated_emissions * abatement_cost
-    
+
     total_abatement_cost = numerator / total_abated_emissions
-         
 
     return total_abatement_cost
-     
 
 
 def initialize_hydrotreatment_cost_params():
@@ -1450,18 +1476,18 @@ def initialize_hydrotreatment_emission_params():
     baseline_so2 = 0.2432  # g/l of fuel
     baseline_co2_per_l = 2.59  # kg/l
     baseline_bc = 0.024  # g/l of fuel
-    baseline_h2 = 1 # Baseline taken as 1
+    baseline_h2 = 1  # Baseline taken as 1
 
     # Emissions from Hydrotreated Jet A-1 with grey hydrogen
     ht_so2_grey = 0.0111  # g/l of fuel
     ht_co2_per_l_grey = 2.55  # kg/l
-    ht_bc_grey = 0.01656 #reduction by 31% in line with SAF
-    ht_h2_grey = 1.12 # 12 % increase as for SAF
+    ht_bc_grey = 0.01656  # reduction by 31% in line with SAF
+    ht_h2_grey = 1.12  # 12 % increase as for SAF
 
     # Emissions from Hydrotreated Jet A-1 with green hydrogen
     ht_so2_green = 0.0111
     ht_co2_per_l_green = 2.55
-    ht_bc_green = 0.01656 #reduction by 31% in line with SAF
+    ht_bc_green = 0.01656  # reduction by 31% in line with SAF
     ht_h2_green = 1.12
 
     additional_co2_emissions_ht_grey = 0.14
@@ -1591,18 +1617,20 @@ def calculate_additional_abatement_hydrotreatment(
                     # Contrails are calculated separately based on soot reduction
                     if component != "Contrail Cirrus and C-C":
                         # Abated emissions are calculated by subtracting the emissions from hydrotreated fuel from baseline fuel (either 100% fossil or 100% SAF)
-                        df.loc[f"{metric} {scenario}", component] = gwp.loc[
+                       df.loc[f"{metric} {scenario}", component]  = np.array(gwp.loc[
                             f"{metric} {scenario}", component
                         ] - (
                             gwp.loc[f"{metric} {scenario}", component]
-                            * emission_params[f"{component} {df_name}"] 
+                            * emission_params[f"{component} {df_name}"])
                         )
                     elif component == "Contrail Cirrus and C-C":
                         df.loc[f"{metric} {scenario}", component] = np.array(
-                            gwp.loc[f"{metric} {scenario}", component] * (1-rf_factors[scenario]))
+                            gwp.loc[f"{metric} {scenario}", component]
+                            * (1 - rf_factors[scenario])
+                        )
     for df in ht_abatement_dfs.values():
-        df.loc[:,"CO2"] = df.loc[:,"CO2"].replace(0, df.loc["GWP100 BAU","CO2"])
-    
+        df.loc[:, "CO2"] = df.loc[:, "CO2"].replace(0, df.loc["GWP100 BAU", "CO2"])
+
     if not abate_so2:
         for df in ht_abatement_dfs.values():
             df.loc["GWP100 BAU", "SO2"] = 0
@@ -1630,35 +1658,42 @@ def calculate_additional_abatement_cost_hydrotreatment(
 
     return abatement_cost_dfs
 
-def calculate_daccs_cost_remaining_emissions(gwp_baseline,gwp_star,abated_emissions_dict,abatement_curve_daccs):
 
+def calculate_daccs_cost_remaining_emissions(
+    gwp_baseline, gwp_star, abated_emissions_dict, abatement_curve_daccs
+):
     abated_emissions_saf = abated_emissions_dict["SAF"]
     abated_emissions_daccs = abated_emissions_dict["DACCS"]
 
-    remaining_emissions_saf = {key:0 for key in abated_emissions_saf.keys()}
-    remaining_emissions_daccs = {key:0 for key in abated_emissions_daccs.keys()}
+    remaining_emissions_saf = {key: 0 for key in abated_emissions_saf.keys()}
+    remaining_emissions_daccs = {key: 0 for key in abated_emissions_daccs.keys()}
 
-    emissions = [(abated_emissions_saf,remaining_emissions_saf), (abated_emissions_daccs, remaining_emissions_daccs)]
+    emissions = [
+        (abated_emissions_saf, remaining_emissions_saf),
+        (abated_emissions_daccs, remaining_emissions_daccs),
+    ]
 
     for abated_emissions, remaining_emissions in emissions:
         for metric in remaining_emissions.keys():
             if metric != "GWP_star":
-                remaining_emissions[metric] = gwp_baseline.loc[f"{metric} BAU", "Total"] - abated_emissions[metric] # in Mt CO2eq
+                remaining_emissions[metric] = (
+                    gwp_baseline.loc[f"{metric} BAU", "Total"]
+                    - abated_emissions[metric]
+                )  # in Mt CO2eq
             else:
-                remaining_emissions[metric] = gwp_star.loc["GWP* BAU", "Total"] - abated_emissions[metric] # in Mt CO2eq
-    
+                remaining_emissions[metric] = (
+                    gwp_star.loc["GWP* BAU", "Total"] - abated_emissions[metric]
+                )  # in Mt CO2eq
+
     return remaining_emissions_saf, remaining_emissions_daccs
 
 
-def save_excel (df, path, index, scenario_name):
-
+def save_excel(df, path, index, scenario_name):
     if not os.path.exists(path):
         df.to_excel(path, index=index, sheet_name=scenario_name[:31])
 
-    else: 
-        with pd.ExcelWriter(path,
-                            mode = "a",
-                            engine="openpyxl",
-                            if_sheet_exists="replace") as writer:
+    else:
+        with pd.ExcelWriter(
+            path, mode="a", engine="openpyxl", if_sheet_exists="replace"
+        ) as writer:
             df.to_excel(writer, index=index, sheet_name=scenario_name[:31])
-    
