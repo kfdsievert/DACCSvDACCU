@@ -1440,6 +1440,34 @@ def calculate_weighted_abatement_cost(emission_components: List[Tuple[float, flo
 
     return total_abatement_cost
 
+def calculate_contribution_to_abatement_cost(abated_emissions_df, abatement_cost_saf, abatement_cost_daccs, abatement_cost_hydrotreatment, total_abated_emissions, abatement_cost_contrail_avoidance=None):
+
+    metrics = ["GWP100", "GWP20"]
+    cost_ranges = ["25%", "50%", "75%"]
+
+    abatement_contribution = {cost_range : pd.DataFrame(0, index = abated_emissions_df.index, columns = ["Contribution", "Percentage"]) for cost_range in cost_ranges}
+
+    for metric in metrics:
+        for cost_range in cost_ranges: 
+
+            abatement_contribution[cost_range].loc[f"{metric} SAF"]  = np.array((abated_emissions_df.loc[f"{metric} SAF", "Total"] *  abatement_cost_saf[metric].loc[cost_range]) / total_abated_emissions[metric])
+
+            abatement_contribution[cost_range].loc[f"{metric} SAF DACCS"] = np.array((abated_emissions_df.loc[f"{metric} SAF DACCS", "Total"] *  abatement_cost_daccs[metric].loc[cost_range]) / total_abated_emissions[metric])
+
+            abatement_contribution[cost_range].loc[f"{metric} BAU DACCS"] = np.array((abated_emissions_df.loc[f"{metric} BAU DACCS", "Total"] *  abatement_cost_daccs[metric].loc[cost_range]) / total_abated_emissions[metric])
+
+            if abatement_cost_contrail_avoidance is not None:
+
+                abatement_contribution[cost_range].loc[f"{metric} Contrail Avoidance BAU"] = np.array((abated_emissions_df.loc[f"{metric} Contrail Avoidance BAU", "Total"] *  abatement_cost_contrail_avoidance.loc[f"{metric} BAU"]) / total_abated_emissions[metric])
+                abatement_contribution[cost_range].loc[f"{metric} Contrail Avoidance SAF"] = np.array((abated_emissions_df.loc[f"{metric} Contrail Avoidance SAF", "Total"] *  abatement_cost_contrail_avoidance.loc[f"{metric} SAF"]) / total_abated_emissions[metric])
+
+            if abatement_cost_hydrotreatment["Green"].loc[f"{metric} BAU"] > 0 : 
+                abatement_contribution[cost_range].loc[f"{metric} Hydrotreatment"] = np.array((abated_emissions_df.loc[f"{metric} Hydrotreatment", "Total"] *  abatement_cost_hydrotreatment["Green"].loc[f"{metric} BAU"]) / total_abated_emissions[metric])
+
+
+    return abatement_contribution      
+
+
 
 def initialize_hydrotreatment_cost_params():
     """Initialize parameters for hydrotreatment of jet fuel

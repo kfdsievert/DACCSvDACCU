@@ -352,9 +352,13 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
         )
     )  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
 
+    abatement_cost_saf_only = copy.deepcopy(abatement_costs_saf_per_ton_eq)
+
     abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
         abatement_curve_daccs, gwp_baseline, gwp_star
     )  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
+
+    abatement_cost_daccs_only = copy.deepcopy(abatement_costs_daccs_per_ton_eq)
 
     abated_emissions_daccs = copy.deepcopy(
         abated_emissions_saf
@@ -408,6 +412,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
         abated_emissions_main_df_pct.loc["GWP20 Contrail Avoidance SAF", :] = (
             abated_emissions_contrail_avoidance.loc["GWP20 BAU", :] * -100
         ) / gwp_baseline.loc["GWP20 BAU", :]
+        
 
     # ---------------- Calculate abatement from hydrotreatment ----------------#
 
@@ -422,7 +427,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
         N_YEARS,
         abate_so2=abate_so2,  # Whether SO2 abatement is considered in this simulation. Save file is named accordingly
         year=2050,
-    )
+                )
 
     # ---------------- Calculate abatement cost for hydrotreatment ----------------#
 
@@ -579,6 +584,14 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
             ) / (abated_emissions[metric] + remaining_emissions[metric])
             abated_emissions[metric] += remaining_emissions[metric]
 
+    # ----------------- Calculate abatement cost contributions for each method of abatement -----------------#
+
+    if contrail_avoidance["Fossil"] or contrail_avoidance["SAF"]:
+        abatement_contributions = functions.calculate_contribution_to_abatement_cost(abated_emissions_main_df_abs, abatement_cost_saf_only, abatement_cost_daccs_only, abatement_costs_hydrotreatment, abated_emissions, additional_abatement_costs_contrails_per_ton_eq)
+
+    else:
+        abatement_contributions = functions.calculate_contribution_to_abatement_cost(abated_emissions_main_df_abs, abatement_cost_saf_only, abatement_cost_daccs_only, abatement_costs_hydrotreatment, abated_emissions)
+
     # ---------------- Export results ----------------#
 
     folder_name = datetime.now().strftime("%Y-%m-%d_%H")
@@ -691,6 +704,15 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
         index=True,
         scenario_name=scenario_name[:31],
     )
+    
+    for key, value in abatement_contributions.items():
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_contributions_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31],
+        )
+
 
     print(
         f"Simulation completed for scenario: {scenario_name}. Results exported to the outputs folder."
