@@ -7,8 +7,9 @@ import itertools
 import time
 from uncertainties import ufloat
 
+RUN_SENSITIVITES = True
 
-def main(contrail_avoidance, hydrotreatment, abate_so2):
+def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, sensitivities=False, sensitivity_name = "Default"):
     # ---------------- Scenario Descriptions ----------------#
     # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
     # SAF: SAF is deployed according to the progression curve in Brazzola et al. 2024. DACCS is used to abate residual emissions from synfuel manufacture, leading to "Net-zero" emissions from aviation.
@@ -16,10 +17,10 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
     # ---------------- Load inputs ----------------#
 
     abatement_curve_saf, residual_emissions_saf = functions.load_input_abatement_cost(
-        "data/Master Standardisation_SAF.xlsx", tech="SAF"
+        f"data/{saf_input}", tech="SAF"
     )
     abatement_curve_daccs = functions.load_input_abatement_cost(
-        "data/Master Standardisation DACCS.xlsx", tech="DACCS"
+        f"data/{daccs_input}", tech="DACCS"
     )
     base_inputs = functions.load_base_inputs("data/base_input_brazzola.csv")
     lee_df = functions.load_lee("data/lee_erf.csv")
@@ -624,7 +625,11 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
     if scenario_name == "":
         scenario_name = "Base Case"
 
-    save_path = f"outputs/{folder_name}"
+    if sensitivities: 
+        save_path = f"outputs/{folder_name}/{sensitivity_name}"
+
+    else:
+        save_path = f"outputs/{folder_name}"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     gwp_baseline.to_csv(f"{save_path}/gwp_baseline.csv")
@@ -664,6 +669,14 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
                 index=True,
                 scenario_name=scenario_name[:31],
             )
+
+    if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+        functions.save_excel(
+            additional_abatement_costs_contrails_per_ton_eq,
+            f"{save_path}/abatement_cost_contrails.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31],
+        )
 
     for key, value in abatement_costs_saf_per_ton_eq.items():
         value = pd.DataFrame(value, index=value.index)
@@ -718,6 +731,34 @@ def main(contrail_avoidance, hydrotreatment, abate_so2):
         f"Simulation completed for scenario: {scenario_name}. Results exported to the outputs folder."
     )
 
+# For sensitivity runs, determine sheets to be used as input 
+
+sensitivity_scenarios = {
+    "Default" : {"SAF": "Master Standardisation_SAF_Default.xlsx",
+                 "DACCS" : "Master Standardisation DACCS.xlsx"},
+
+    "LE" : {"SAF": "Master Standardisation_SAF_LE.xlsx",
+                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
+
+    "HF" : {"SAF": "Master Standardisation_SAF_HF.xlsx",
+                 "DACCS" : "Master Standardisation DACCS.xlsx"},
+
+    "HF_LE" : {"SAF": "Master Standardisation_SAF_HF_LE.xlsx",
+                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
+
+    "HF_LE_CA": {"SAF": "Master Standardisation_SAF_HF_LE.xlsx",
+                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
+
+    "LE_CA": {"SAF": "Master Standardisation_SAF_LE.xlsx",
+                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
+    
+    "HF_CA": {"SAF": "Master Standardisation_SAF_HF.xlsx",
+                 "DACCS" : "Master Standardisation DACCS.xlsx"},
+
+    "CA" : {"SAF": "Master Standardisation_SAF_Default.xlsx",
+                    "DACCS" : "Master Standardisation DACCS.xlsx"},                   
+}
+
 
 contrail_avoidance_options = [
     {"Fossil": True, "SAF": True},
@@ -729,11 +770,25 @@ hydrotreatment_options = [
 ]
 so2_abatement_options = [True, False]
 
-for contrail_avoidance, hydrotreatment, abate_so2 in itertools.product(
-    contrail_avoidance_options, hydrotreatment_options, so2_abatement_options
-):
-    if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
-        continue
-    main(contrail_avoidance, hydrotreatment, abate_so2)
-    # Sleep 2 seconds to avoid conflicting save files
-    time.sleep(2)
+
+if RUN_SENSITIVITES:
+    print("Running Sensitivities...\n")
+    for sensitivity, input_names in sensitivity_scenarios.items():
+        print("Running sensitivity: ", sensitivity)
+        for contrail_avoidance, hydrotreatment, abate_so2 in itertools.product(
+            contrail_avoidance_options, hydrotreatment_options, so2_abatement_options
+        ):
+            if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
+                continue
+            main(contrail_avoidance, hydrotreatment, abate_so2, input_names["SAF"], input_names["DACCS"], sensitivities=True, sensitivity_name=sensitivity)
+            # Sleep 2 seconds to avoid conflicting save files
+            time.sleep(2)
+else:
+    for contrail_avoidance, hydrotreatment, abate_so2 in itertools.product(
+        contrail_avoidance_options, hydrotreatment_options, so2_abatement_options
+    ):
+        if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
+            continue
+        main(contrail_avoidance, hydrotreatment, abate_so2, "Master Standardisation_SAF_Default.xlsx", "Master Standardisation DACCS.xlsx", sensitivities=False, scenario_name="Default")
+        # Sleep 2 seconds to avoid conflicting save files
+        time.sleep(2)

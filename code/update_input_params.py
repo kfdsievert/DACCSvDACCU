@@ -11,6 +11,14 @@ sensitivity_scenarios = {
 
     },
 
+    "LE": {
+        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
+                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
+        "electricity_price" : 11, #$/MWh
+        "fuel_price" : 0.8 #$/l
+
+    },
+
     "HF" : { 
         "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
                     "2050" : {"low": 147, "median" : 260, "high" : 495}},
@@ -23,45 +31,7 @@ sensitivity_scenarios = {
                     "2050" : {"low": 131, "median" : 260, "high" : 480}},
         "electricity_price" : 11, #$/MWh
         "fuel_price" : 1.7 #$/l
-    },
-
-    "HF_LE_CA": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
-        "electricity_price" : 11, #$/MWh
-        "fuel_price" : 1.7 #$/l
-    }, 
-
-    "HF_CA": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 147, "median" : 260, "high" : 495}},
-        "electricity_price" : 39, #$/MWh
-        "fuel_price" : 1.7 #$/l
-    },
-
-    "LE_CA": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
-        "electricity_price" : 11, #$/MWh
-        "fuel_price" : 0.8 #$/l
-
-    },
-
-    "LE": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
-        "electricity_price" : 11, #$/MWh
-        "fuel_price" : 0.8 #$/l
-
-    },
-
-    "CA": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 147, "median" : 260, "high" : 495}},
-        "electricity_price" : 39, #$/MWh
-        "fuel_price" : 0.8 #$/l
-
-    }
+    } 
 
 }
 
