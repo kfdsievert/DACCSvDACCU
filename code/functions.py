@@ -1445,7 +1445,7 @@ def calculate_contribution_to_abatement_cost(abated_emissions_df, abatement_cost
     metrics = ["GWP100", "GWP20"]
     cost_ranges = ["25%", "50%", "75%"]
 
-    abatement_contribution = {cost_range : pd.DataFrame(0, index = abated_emissions_df.index, columns = ["Contribution", "Percentage"]) for cost_range in cost_ranges}
+    abatement_contribution = {cost_range : pd.DataFrame(0, index = abated_emissions_df.index, columns = ["Contribution"]) for cost_range in cost_ranges}
 
     for metric in metrics:
         for cost_range in cost_ranges: 
