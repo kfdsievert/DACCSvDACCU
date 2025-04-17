@@ -7,7 +7,7 @@ import itertools
 import time
 from uncertainties import ufloat
 
-RUN_SENSITIVITES = True
+RUN_SENSITIVITES = False
 
 def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, sensitivities=False, sensitivity_name = "Default"):
     # ---------------- Scenario Descriptions ----------------#
@@ -595,7 +595,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
 
     # ---------------- Export results ----------------#
 
-    folder_name = datetime.now().strftime("%Y-%m-%d_%H")
+    folder_name = datetime.now().strftime("%Y-%m-%d")
     scenario_name = ""
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         if CONTRAIL_AVOIDANCE["Fossil"] and CONTRAIL_AVOIDANCE["SAF"]:
@@ -789,6 +789,6 @@ else:
     ):
         if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
             continue
-        main(contrail_avoidance, hydrotreatment, abate_so2, "Master Standardisation_SAF_Default.xlsx", "Master Standardisation DACCS.xlsx", sensitivities=False, scenario_name="Default")
+        main(contrail_avoidance, hydrotreatment, abate_so2, "Master Standardisation_SAF_Default.xlsx", "Master Standardisation DACCS.xlsx", sensitivities=False, sensitivity_name="Default")
         # Sleep 2 seconds to avoid conflicting save files
         time.sleep(2)
