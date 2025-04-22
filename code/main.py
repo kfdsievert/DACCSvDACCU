@@ -38,7 +38,10 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [
         1e15
     ]  # Current estimate of ice particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
-    SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% or 52% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
+    if "CA" in sensitivity_name:
+        SAF_SOOT_PARTICLE_REDUCTION = 0.52
+    else:
+        SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% or 52% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
     CONTRAIL_REDUCTION = ufloat(0.57,0.07)  #50-64% Contrails reduced by re-routing (Multiple interviews)
     REROUTING_FUEL_PENALTY = ufloat(0.003, 0.002) # 0.1-0.5% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
     FUEL_PRICE_2050 = 0.8  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
