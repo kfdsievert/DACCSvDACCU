@@ -9,6 +9,7 @@ from uncertainties import ufloat
 
 RUN_SENSITIVITES = False
 
+
 def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, sensitivities=False, sensitivity_name = "Default"):
     # ---------------- Scenario Descriptions ----------------#
     # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
@@ -42,6 +43,8 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         SAF_SOOT_PARTICLE_REDUCTION = 0.52
     else:
         SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% or 52% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
+
+    BLENDING_RATIO = 0.35  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
     CONTRAIL_REDUCTION = ufloat(0.57,0.07)  #50-64% Contrails reduced by re-routing (Multiple interviews)
     REROUTING_FUEL_PENALTY = ufloat(0.003, 0.002) # 0.1-0.5% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
     FUEL_PRICE_2050 = 0.8  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
@@ -207,6 +210,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE,
         REROUTING_FUEL_PENALTY,
         metric="GWP100",
+        blending_ratio=BLENDING_RATIO
     )
 
     gwp_20 = functions.generate_equivalence_gwp(
@@ -219,6 +223,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE,
         REROUTING_FUEL_PENALTY,
         metric="GWP20",
+        blending_ratio=BLENDING_RATIO
     )
 
     # Combine into one dataframe
@@ -237,6 +242,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE={"Fossil": False, "SAF": False},
         REROUTING_FUEL_PENALTY=REROUTING_FUEL_PENALTY,
         metric="GWP100",
+        blending_ratio=BLENDING_RATIO
     )
 
     gwp_20_baseline = functions.generate_equivalence_gwp(
@@ -249,6 +255,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE={"Fossil": False, "SAF": False},
         REROUTING_FUEL_PENALTY=REROUTING_FUEL_PENALTY,
         metric="GWP20",
+        blending_ratio=BLENDING_RATIO
     )
 
     # Combine into one dataframe
@@ -684,6 +691,15 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     for key, value in abatement_costs_saf_per_ton_eq.items():
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+        value["Abatement Cost Range"] = value.index.map(
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "25%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            if x == "50%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "75%"
+            else None
+        )
 
         functions.save_excel(
             value,
@@ -695,6 +711,15 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     for key, value in abatement_costs_daccs_per_ton_eq.items():
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+        value["Abatement Cost Range"] = value.index.map(
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "25%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            if x == "50%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "75%"
+            else None
+        )
 
         functions.save_excel(
             value,
@@ -722,6 +747,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     )
     
     for key, value in abatement_contributions.items():
+        #
         functions.save_excel(
             value,
             f"{save_path}/abatement_contributions_{key}.xlsx",

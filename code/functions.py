@@ -265,6 +265,7 @@ def generate_equivalence_gwp(
     CONTRAIL_AVOIDANCE,
     REROUTING_FUEL_PENALTY,
     metric="GWP100",
+    blending_ratio=1
 ):
     """
     Calculates Equivalent CO2 emissions from GWP metrics as in Lee et. al. 2021
@@ -306,7 +307,7 @@ def generate_equivalence_gwp(
     # Values below are obtained from the Time Series sheet of the Supplmentary Material of Lee et. al. 2021
 
     # SAF deployment in selected year
-    saf_deployed_current = base_inputs.loc[year, "PROGRESSION_CURVE"]
+    saf_deployed_current = base_inputs.loc[year, "PROGRESSION_CURVE"] * blending_ratio
     fossil_share_current = 1 - saf_deployed_current
 
     dist_net_2018 = 61333  # Million kms in 2018 from Lee et. al. 2021
@@ -871,7 +872,7 @@ def calculate_abatement_cost_saf(abatement_cost_saf, gwp_df, year, SIMULATION_ST
     """
 
     # Total CO2 emissions in 2050 (same for GWP and GWP*)
-    total_co2 = gwp_df.loc["GWP100 BAU", "CO2"] * 10**6  # In T of CO2
+    total_co2 = (gwp_df.loc["GWP100 BAU", "CO2"] - gwp_df.loc["GWP100 SAF", "CO2"]) * 10**6  # In T of CO2
 
     # Abatement cost for SAF in 2050 (same for GWP and GWP*)
     abatement_cost = abatement_cost_saf.loc[year - SIMULATION_START - 1] * total_co2
