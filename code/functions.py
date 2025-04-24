@@ -1285,7 +1285,7 @@ def update_emission_factors(
     rf_factors_ht = vectorized_calculate_normalised_rf(
         normalised_nucleated_ice_particles_ht
     )
-    rf_factors_ht_median = np.median(rf_factors_ht)
+    rf_factors_ht_median = np.average(rf_factors_ht)
     rf_factors_ht_std = np.std(rf_factors_ht)
     rf_factors_ht = ufloat(rf_factors_ht_median, rf_factors_ht_std)
 
@@ -1296,11 +1296,12 @@ def update_emission_factors(
         rf_factors = rf_factors - CONTRAIL_REDUCTION
 
     if isinstance(rf_factors[0][0], UFloat):
-        nominal_rf_factor = np.median(rf_factors).nominal_value
+        nominal_rf_factor = np.average(rf_factors, weights = [[0.7, 0.3]]).nominal_value # Higher proportion of flights in the colder region for contrail formation
         std_rf_factor = rf_factors[0][0].std_dev
     else:
-        nominal_rf_factor = np.median(rf_factors)
+        nominal_rf_factor = np.average(rf_factors, weights= [[0.7, 0.3]])
         std_rf_factor = np.std(rf_factors)
+
     new_contrail_factor = ufloat(nominal_rf_factor, std_rf_factor)
 
     return new_contrail_factor, rf_factors_ht

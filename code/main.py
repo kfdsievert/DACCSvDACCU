@@ -10,7 +10,15 @@ from uncertainties import ufloat
 RUN_SENSITIVITES = False
 
 
-def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, sensitivities=False, sensitivity_name = "Default"):
+def main(
+    contrail_avoidance,
+    hydrotreatment,
+    abate_so2,
+    saf_input,
+    daccs_input,
+    sensitivities=False,
+    sensitivity_name="Default",
+):
     # ---------------- Scenario Descriptions ----------------#
     # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
     # SAF: SAF is deployed according to the progression curve in Brazzola et al. 2024. DACCS is used to abate residual emissions from synfuel manufacture, leading to "Net-zero" emissions from aviation.
@@ -44,9 +52,13 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     else:
         SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% or 52% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
 
-    BLENDING_RATIO = 0.35  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
-    CONTRAIL_REDUCTION = ufloat(0.57,0.07)  #50-64% Contrails reduced by re-routing (Multiple interviews)
-    REROUTING_FUEL_PENALTY = ufloat(0.003, 0.002) # 0.1-0.5% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
+    BLENDING_RATIO = 1  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
+    CONTRAIL_REDUCTION = ufloat(
+        0.57, 0.07
+    )  # 50-64% Contrails reduced by re-routing (Multiple interviews)
+    REROUTING_FUEL_PENALTY = ufloat(
+        0.003, 0.002
+    )  # 0.1-0.5% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
     FUEL_PRICE_2050 = 0.8  # $/L standard assumption for average fuel price from various scenarios in from Master Standardization SAF (2024)
     FLEET_SIZE_2025 = 28400  # Approximate fleet size of passenger aircraft in 2025 (Oliver Wyman: https://www.oliverwyman.com/our-expertise/insights/2024/feb/global-fleet-and-mro-market-forecast-2024-2034.html)
     HUMIDITY_SENSOR_COST = 100000  # CAPEX of humidity sensor per aircraft in $
@@ -210,7 +222,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE,
         REROUTING_FUEL_PENALTY,
         metric="GWP100",
-        blending_ratio=BLENDING_RATIO
+        blending_ratio=BLENDING_RATIO,
     )
 
     gwp_20 = functions.generate_equivalence_gwp(
@@ -223,7 +235,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE,
         REROUTING_FUEL_PENALTY,
         metric="GWP20",
-        blending_ratio=BLENDING_RATIO
+        blending_ratio=BLENDING_RATIO,
     )
 
     # Combine into one dataframe
@@ -242,7 +254,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE={"Fossil": False, "SAF": False},
         REROUTING_FUEL_PENALTY=REROUTING_FUEL_PENALTY,
         metric="GWP100",
-        blending_ratio=BLENDING_RATIO
+        blending_ratio=BLENDING_RATIO,
     )
 
     gwp_20_baseline = functions.generate_equivalence_gwp(
@@ -255,7 +267,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         CONTRAIL_AVOIDANCE={"Fossil": False, "SAF": False},
         REROUTING_FUEL_PENALTY=REROUTING_FUEL_PENALTY,
         metric="GWP20",
-        blending_ratio=BLENDING_RATIO
+        blending_ratio=BLENDING_RATIO,
     )
 
     # Combine into one dataframe
@@ -423,7 +435,6 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         abated_emissions_main_df_pct.loc["GWP20 Contrail Avoidance SAF", :] = (
             abated_emissions_contrail_avoidance.loc["GWP20 BAU", :] * -100
         ) / gwp_baseline.loc["GWP20 BAU", :]
-        
 
     # ---------------- Calculate abatement from hydrotreatment ----------------#
 
@@ -438,7 +449,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         N_YEARS,
         abate_so2=abate_so2,  # Whether SO2 abatement is considered in this simulation. Save file is named accordingly
         year=2050,
-                )
+    )
 
     # ---------------- Calculate abatement cost for hydrotreatment ----------------#
 
@@ -598,10 +609,23 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     # ----------------- Calculate abatement cost contributions for each method of abatement -----------------#
 
     if contrail_avoidance["Fossil"] or contrail_avoidance["SAF"]:
-        abatement_contributions = functions.calculate_contribution_to_abatement_cost(abated_emissions_main_df_abs, abatement_cost_saf_only, abatement_cost_daccs_only, abatement_costs_hydrotreatment, abated_emissions, additional_abatement_costs_contrails_per_ton_eq)
+        abatement_contributions = functions.calculate_contribution_to_abatement_cost(
+            abated_emissions_main_df_abs,
+            abatement_cost_saf_only,
+            abatement_cost_daccs_only,
+            abatement_costs_hydrotreatment,
+            abated_emissions,
+            additional_abatement_costs_contrails_per_ton_eq,
+        )
 
     else:
-        abatement_contributions = functions.calculate_contribution_to_abatement_cost(abated_emissions_main_df_abs, abatement_cost_saf_only, abatement_cost_daccs_only, abatement_costs_hydrotreatment, abated_emissions)
+        abatement_contributions = functions.calculate_contribution_to_abatement_cost(
+            abated_emissions_main_df_abs,
+            abatement_cost_saf_only,
+            abatement_cost_daccs_only,
+            abatement_costs_hydrotreatment,
+            abated_emissions,
+        )
 
     # ---------------- Export results ----------------#
 
@@ -635,7 +659,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
     if scenario_name == "":
         scenario_name = "Base Case"
 
-    if sensitivities: 
+    if sensitivities:
         save_path = f"outputs/{folder_name}/{sensitivity_name}"
 
     else:
@@ -692,11 +716,13 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
         value["Abatement Cost Range"] = value.index.map(
-            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
             if x == "25%"
             else value.loc[x, "Abatement Cost $ per tCO2eq"].n
             if x == "50%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
             if x == "75%"
             else None
         )
@@ -712,11 +738,13 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
         value["Abatement Cost Range"] = value.index.map(
-            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
             if x == "25%"
             else value.loc[x, "Abatement Cost $ per tCO2eq"].n
             if x == "50%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
             if x == "75%"
             else None
         )
@@ -745,7 +773,7 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
         index=True,
         scenario_name=scenario_name[:31],
     )
-    
+
     for key, value in abatement_contributions.items():
         #
         functions.save_excel(
@@ -755,37 +783,62 @@ def main(contrail_avoidance, hydrotreatment, abate_so2, saf_input, daccs_input, 
             scenario_name=scenario_name[:31],
         )
 
+    for key, value in abatement_cost_saf_only.items():
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_cost_saf_only_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31],
+        )
+
+    for key, value in abatement_cost_daccs_only.items():
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_cost_daccs_only_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31],
+        )
 
     print(
         f"Simulation completed for scenario: {scenario_name}. Results exported to the outputs folder."
     )
 
-# For sensitivity runs, determine sheets to be used as input 
+
+# For sensitivity runs, determine sheets to be used as input
 
 sensitivity_scenarios = {
-    "Default" : {"SAF": "Master Standardisation_SAF_Default.xlsx",
-                 "DACCS" : "Master Standardisation DACCS.xlsx"},
-
-    "LE" : {"SAF": "Master Standardisation_SAF_LE.xlsx",
-                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
-
-    "HF" : {"SAF": "Master Standardisation_SAF_HF.xlsx",
-                 "DACCS" : "Master Standardisation DACCS.xlsx"},
-
-    "HF_LE" : {"SAF": "Master Standardisation_SAF_HF_LE.xlsx",
-                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
-
-    "HF_LE_CA": {"SAF": "Master Standardisation_SAF_HF_LE.xlsx",
-                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
-
-    "LE_CA": {"SAF": "Master Standardisation_SAF_LE.xlsx",
-                 "DACCS" : "Master Standardisation DACCS_LE.xlsx"},
-    
-    "HF_CA": {"SAF": "Master Standardisation_SAF_HF.xlsx",
-                 "DACCS" : "Master Standardisation DACCS.xlsx"},
-
-    "CA" : {"SAF": "Master Standardisation_SAF_Default.xlsx",
-                    "DACCS" : "Master Standardisation DACCS.xlsx"},                   
+    "Default": {
+        "SAF": "Master Standardisation_SAF_Default.xlsx",
+        "DACCS": "Master Standardisation DACCS.xlsx",
+    },
+    "LE": {
+        "SAF": "Master Standardisation_SAF_LE.xlsx",
+        "DACCS": "Master Standardisation DACCS_LE.xlsx",
+    },
+    "HF": {
+        "SAF": "Master Standardisation_SAF_HF.xlsx",
+        "DACCS": "Master Standardisation DACCS.xlsx",
+    },
+    "HF_LE": {
+        "SAF": "Master Standardisation_SAF_HF_LE.xlsx",
+        "DACCS": "Master Standardisation DACCS_LE.xlsx",
+    },
+    "HF_LE_CA": {
+        "SAF": "Master Standardisation_SAF_HF_LE.xlsx",
+        "DACCS": "Master Standardisation DACCS_LE.xlsx",
+    },
+    "LE_CA": {
+        "SAF": "Master Standardisation_SAF_LE.xlsx",
+        "DACCS": "Master Standardisation DACCS_LE.xlsx",
+    },
+    "HF_CA": {
+        "SAF": "Master Standardisation_SAF_HF.xlsx",
+        "DACCS": "Master Standardisation DACCS.xlsx",
+    },
+    "CA": {
+        "SAF": "Master Standardisation_SAF_Default.xlsx",
+        "DACCS": "Master Standardisation DACCS.xlsx",
+    },
 }
 
 
@@ -809,7 +862,15 @@ if RUN_SENSITIVITES:
         ):
             if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
                 continue
-            main(contrail_avoidance, hydrotreatment, abate_so2, input_names["SAF"], input_names["DACCS"], sensitivities=True, sensitivity_name=sensitivity)
+            main(
+                contrail_avoidance,
+                hydrotreatment,
+                abate_so2,
+                input_names["SAF"],
+                input_names["DACCS"],
+                sensitivities=True,
+                sensitivity_name=sensitivity,
+            )
             # Sleep 2 seconds to avoid conflicting save files
             time.sleep(2)
 else:
@@ -818,6 +879,14 @@ else:
     ):
         if abate_so2 and hydrotreatment == {"Fossil": False, "SAF": False}:
             continue
-        main(contrail_avoidance, hydrotreatment, abate_so2, "Master Standardisation_SAF_Default.xlsx", "Master Standardisation DACCS.xlsx", sensitivities=False, sensitivity_name="Default")
+        main(
+            contrail_avoidance,
+            hydrotreatment,
+            abate_so2,
+            "Master Standardisation_SAF_Default.xlsx",
+            "Master Standardisation DACCS.xlsx",
+            sensitivities=False,
+            sensitivity_name="Default",
+        )
         # Sleep 2 seconds to avoid conflicting save files
         time.sleep(2)
