@@ -7,6 +7,7 @@ import itertools
 import time
 from uncertainties import ufloat
 
+# Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
 RUN_SENSITIVITES = False
 
 
@@ -784,6 +785,18 @@ def main(
         )
 
     for key, value in abatement_cost_saf_only.items():
+        value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+        value["Abatement Cost Range"] = value.index.map(
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "25%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            if x == "50%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "75%"
+            else None
+        )
         functions.save_excel(
             value,
             f"{save_path}/abatement_cost_saf_only_{key}.xlsx",
@@ -792,6 +805,18 @@ def main(
         )
 
     for key, value in abatement_cost_daccs_only.items():
+        value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+        value["Abatement Cost Range"] = value.index.map(
+            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "25%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            if x == "50%"
+            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+            if x == "75%"
+            else None
+        )
         functions.save_excel(
             value,
             f"{save_path}/abatement_cost_daccs_only_{key}.xlsx",
