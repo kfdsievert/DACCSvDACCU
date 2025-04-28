@@ -785,6 +785,7 @@ def main(
         )
 
     for key, value in abatement_cost_saf_only.items():
+        value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
         value["Abatement Cost Range"] = value.index.map(
             lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
@@ -805,6 +806,7 @@ def main(
         )
 
     for key, value in abatement_cost_daccs_only.items():
+        value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
         value["Abatement Cost Range"] = value.index.map(
             lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
