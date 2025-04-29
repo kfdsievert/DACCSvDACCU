@@ -379,8 +379,11 @@ def main(
     abatement_cost_saf_only = copy.deepcopy(abatement_costs_saf_per_ton_eq)
 
     abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
-        abatement_curve_daccs, gwp_baseline, gwp_star
+       abatement_curve_daccs, gwp_baseline, gwp_star
     )  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
+
+    for metric in ["GWP100", "GWP20", "GWP_star"]:
+        abatement_costs_daccs_per_ton_eq[metric] = abatement_curve_daccs.iloc[-1]
 
     abatement_cost_daccs_only = copy.deepcopy(abatement_costs_daccs_per_ton_eq)
 
@@ -487,6 +490,7 @@ def main(
 
     # Update abatement costs for contrail avoidance and hydrotreatment.
     gwp_final = copy.deepcopy(gwp)
+
     for fuel_type in ["SAF", "Fossil"]:
         fuel_label = "BAU" if fuel_type == "Fossil" else "SAF"
         abatement_costs = (
@@ -735,27 +739,6 @@ def main(
             scenario_name=scenario_name[:31],
         )
 
-    for key, value in abatement_costs_daccs_per_ton_eq.items():
-        value = pd.DataFrame(value, index=value.index)
-        value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
-        value["Abatement Cost Range"] = value.index.map(
-            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
-            if x == "25%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            if x == "50%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
-            if x == "75%"
-            else None
-        )
-
-        functions.save_excel(
-            value,
-            f"{save_path}/abatement_costs_daccs_{key}.xlsx",
-            index=True,
-            scenario_name=scenario_name[:31],
-        )
 
     # Abated emissions by technology as absolute values (MtCO2eq) and percentage change from BAU
 
@@ -801,27 +784,6 @@ def main(
         functions.save_excel(
             value,
             f"{save_path}/abatement_cost_saf_only_{key}.xlsx",
-            index=True,
-            scenario_name=scenario_name[:31],
-        )
-
-    for key, value in abatement_cost_daccs_only.items():
-        value = pd.DataFrame(value, index=value.index)
-        value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
-        value["Abatement Cost Range"] = value.index.map(
-            lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            - value.loc[x, "Abatement Cost $ per tCO2eq"].s
-            if x == "25%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            if x == "50%"
-            else value.loc[x, "Abatement Cost $ per tCO2eq"].n
-            + value.loc[x, "Abatement Cost $ per tCO2eq"].s
-            if x == "75%"
-            else None
-        )
-        functions.save_excel(
-            value,
-            f"{save_path}/abatement_cost_daccs_only_{key}.xlsx",
             index=True,
             scenario_name=scenario_name[:31],
         )

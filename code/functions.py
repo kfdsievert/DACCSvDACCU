@@ -957,20 +957,20 @@ def calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gw
     ) * 10**6
 
     # Calculate abatement cost per ton of CO2 eq. for each GWP metric
-    abatement_cost_saf_per_ton_gwp_100 = (
+    abatement_cost_saf_per_ton_eq_gwp_100 = (
         total_abatement_cost_saf / abated_emissions_gwp_100
     )
-    abatement_cost_saf_per_ton_gwp_20 = (
+    abatement_cost_saf_per_ton_eq_gwp_20 = (
         total_abatement_cost_saf / abated_emissions_gwp_20
     )
-    abatement_cost_saf_per_ton_gwp_star = (
+    abatement_cost_saf_per_ton_eq_gwp_star = (
         total_abatement_cost_saf / abated_emissions_gwp_star
     )
 
-    abatement_costs_saf = {
-        "GWP100": abatement_cost_saf_per_ton_gwp_100,
-        "GWP20": abatement_cost_saf_per_ton_gwp_20,
-        "GWP_star": abatement_cost_saf_per_ton_gwp_star,
+    abatement_costs_saf_per_ton_eq = {
+        "GWP100": abatement_cost_saf_per_ton_eq_gwp_100,
+        "GWP20": abatement_cost_saf_per_ton_eq_gwp_20,
+        "GWP_star": abatement_cost_saf_per_ton_eq_gwp_star,
     }
 
     abated_emissions_saf = {
@@ -979,7 +979,7 @@ def calculate_total_abatement_cost_saf_non_co2(total_abatement_cost_saf, gwp, gw
         "GWP_star": abated_emissions_gwp_star / 10**6,
     }  # Abated emissions in Mt
 
-    return abatement_costs_saf, abated_emissions_saf
+    return abatement_costs_saf_per_ton_eq, abated_emissions_saf
 
 
 def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_star):
@@ -998,6 +998,7 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
     total_abatement_daccs = gwp.loc[
         "GWP100 BAU", "CO2"
     ]  # Same for all scenarios, in MT CO2
+    
 
     non_co2_emissions_to_abate_gwp_100 = (
         gwp.loc["GWP100 BAU", "Total"]
@@ -1023,6 +1024,7 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
     ratio_gwp_star = non_co2_emissions_to_abate_gwp_star / (
         total_abatement_daccs * 10**6
     )
+   
 
     abatement_cost_per_ton_co2_2050 = abatement_curve_daccs.iloc[-1]  # in $/T CO2
 
