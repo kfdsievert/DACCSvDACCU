@@ -42,6 +42,7 @@ def main(
     WACC = 0.07
     ANNUAL_DEMAND_GROWTH_RATE = 0.02
     ANNUAL_EFFICIENCY_CHANGE = 0.01
+    DEMAND_SHARE = "Europe" # To restrict the simulation to Europe only
     MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
     DENSITY_SAF = 0.803  # kg/L density of SAF
     DT = 20  # Years for GWP* calculation
@@ -124,6 +125,15 @@ def main(
     df_demand = functions.generate_aviation_demand(
         base_inputs, ANNUAL_DEMAND_GROWTH_RATE, ANNUAL_EFFICIENCY_CHANGE, N_YEARS
     )
+
+    demand_shares = {
+        "Global" : 1, 
+        "Europe" : 0.17, 
+        "North America": 0.17,
+        "Asia Pacific" : 0.44,
+    }
+
+    df_demand = df_demand * demand_shares[DEMAND_SHARE]
 
     # ---------------- Generate Estimated decrease in CC ----------------#
     # Efficiency improvement + Reduced soot from SAF, rf_factor_ht_saf is the ratio of emissions from hydrotreated fuel to base fuel (either SAF or Fossil)
@@ -378,10 +388,10 @@ def main(
 
     abatement_cost_saf_only = copy.deepcopy(abatement_costs_saf_per_ton_eq)
 
-    abatement_costs_daccs_per_ton_eq = functions.calculate_total_abatement_cost_dac_non_co2(
-       abatement_curve_daccs, gwp_baseline, gwp_star
-    )  # Total abatement cost per tonne of CO2 equivalent [$/tCO2eq.] excl. contrail avoidance
 
+    abatement_costs_daccs_per_ton_eq = {"GWP100": pd.DataFrame(), "GWP20": pd.DataFrame(), "GWP_star": pd.DataFrame()}
+    
+    # Abatement costs for DACCS are the same in $/tCO2 and $/tCO2eq.
     for metric in ["GWP100", "GWP20", "GWP_star"]:
         abatement_costs_daccs_per_ton_eq[metric] = abatement_curve_daccs.iloc[-1]
 
