@@ -116,105 +116,75 @@ def draw_table(ax, dataframe, font_size=9, row_height=0.22, grey_background=Fals
     table.auto_set_font_size(False)
     ax.add_table(table)
 
-# Plot
-fig = plt.figure(figsize=(12, 7))
-gs = gridspec.GridSpec(6, 2, width_ratios=[4,3], height_ratios=[0.1,0.5,4,0.3,0.5,1.5], hspace=0.2)
-gs.update(wspace=0.13)  # <<< ADD THIS LINE
+# Plot (Right side only)
+fig = plt.figure(figsize=(5, 7))  # Reduced width
+gs = gridspec.GridSpec(4, 1, height_ratios=[0.1, 5.5, 1.5, 1.5], hspace=0.2)
 
-# Top titles
-ax0 = plt.subplot(gs[0,0])
-ax0.axis('off')
-ax0.text(0.5,0.5,"Study assumptions and standardized parameters",ha='center',va='center',fontsize=11, fontweight='bold')
-ax1 = plt.subplot(gs[0,1])
-ax1.axis('off')
-ax1.text(0.5,0.5,"Harmonized long-term cost projections",ha='center',va='center',fontsize=11, fontweight='bold')
-
-# Top tables
-ax2 = plt.subplot(gs[1,0])
-draw_table(ax2, top_table_header, grey_background=False, bold_header=True, header_lines=True)
-ax3 = plt.subplot(gs[2,0])
-draw_table(ax3, top_table_studies, grey_background=True)
+# Title for harmonized cost projections
+#ax1 = plt.subplot(gs[0])
+#ax1.axis('off')
+#ax1.text(0.5, 0.5, "Harmonized long-term cost projections", ha='center', va='center', fontsize=11, fontweight='bold')
 
 # Dot plot
-ax4 = plt.subplot(gs[2,1])
+ax2 = plt.subplot(gs[1])
 
-# 1. Draw the lightgrey horizontal lines first
+# Horizontal lines
 for y in study_to_y.values():
-    ax4.axhline(y=y, color='lightgrey', linestyle='-', linewidth=0.7, zorder=1)
+    ax2.axhline(y=y, color='lightgrey', linestyle='-', linewidth=0.7, zorder=1)
 
-# 2. Now scatter the dots *on top*
+# Scatter dots
 for _, row in combined_data.iterrows():
     ref = row['Reference']
     if ref in study_to_y:
-        ax4.scatter(row['Fully Harmonized'], study_to_y[ref],
-                    color='#9ED9E5' if row['Tech']=='DACCS' else '#FFB133',
-                    zorder=2,   # Give dots a higher zorder
+        ax2.scatter(row['Fully Harmonized'], study_to_y[ref],
+                    color='#9ED9E5' if row['Tech'] == 'DACCS' else '#FFB133',
+                    zorder=2,
                     s=20)
 
-# 3. Other settings
-ax4.set_yticks(list(study_to_y.values()))
-ax4.set_yticklabels(labels=())
-#ax4.set_yticklabels([f'[{i+1}]' for i in study_to_y.values()], fontsize=9)
-ax4.tick_params(axis='y', left=True, width=0.7, color='lightgrey', length=40)
-ax4.tick_params(axis='x', bottom=False)
-ax4.set_axisbelow(True)
-ax4.invert_yaxis()
-ax4.spines['top'].set_visible(False)
-ax4.spines['right'].set_visible(False)
-ax4.spines['bottom'].set_visible(False)
-ax4.spines['left'].set_visible(False)
-ax4.grid(True, axis='x', linestyle='-', alpha=0.5)
-ax4.set_xlabel("Abatement cost ($/tCO₂)", fontsize=10)
-
-
-# Bottom tables
-ax5 = plt.subplot(gs[4,0])
-draw_table(ax5, bottom_table_header, grey_background=False, bold_header=True, header_lines=True)
-ax6 = plt.subplot(gs[5,0])
-draw_table(ax6, bottom_table_data, grey_background=True)
+ax2.set_yticks(list(study_to_y.values()))
+ax2.set_yticklabels([])
+ax2.tick_params(axis='y', left=True, width=0.7, color='lightgrey', length=40)
+ax2.tick_params(axis='x', bottom=False)
+ax2.set_axisbelow(True)
+ax2.invert_yaxis()
+for side in ['top', 'right', 'bottom', 'left']:
+    ax2.spines[side].set_visible(False)
+ax2.grid(True, axis='x', linestyle='-', alpha=0.5)
+ax2.set_xlabel("Abatement cost ($/tCO₂)", fontsize=10)
 
 # Violin plot
-ax7 = plt.subplot(gs[5,1])
-
-# 1. Plot the violinplot FIRST
+ax3 = plt.subplot(gs[3])
 sns.violinplot(
     data=combined_data,
     x='Fully Harmonized',
     y='Tech',
     hue='Tech',
     palette=['#9ED9E5', '#FFB133'],
-    ax=ax7,
+    ax=ax3,
     cut=0,
     inner='box',
     zorder=2,
     inner_kws=dict(linewidth=0.5, box_width=5, color='.5')
 )
 
-# Remove the outer lines of the violins
-for violin in ax7.findobj(matplotlib.collections.PolyCollection):
+# Remove violin outlines
+for violin in ax3.findobj(matplotlib.collections.PolyCollection):
     violin.set_edgecolor('none')
 
-# 2. Now bring back the grid for both x and y
-ax7.grid(True, axis='both', linestyle='-', alpha=0.5, zorder=1)
-ax7.set_axisbelow(True)
+ax3.grid(True, axis='both', linestyle='-', alpha=0.5, zorder=1)
+ax3.set_axisbelow(True)
+ax3.set_xlabel("Abatement cost ($/tCO₂)", fontsize=10)
+ax3.set_ylabel("")
+ax3.set_yticks([0, 1])
+ax3.set_yticklabels([])
+ax3.tick_params(axis='y', left=True, width=0.7, color='lightgrey', length=40)
+ax3.tick_params(axis='x', bottom=False)
 
-# 3. Style
-ax7.set_xlabel("Abatement cost ($/tCO₂)", fontsize=10)
-ax7.set_ylabel("")
-ax7.set_yticks([0, 1])
-ax7.set_yticklabels(labels=())
-ax7.tick_params(axis='y', left=True, width=0.7, color='lightgrey', length=40)
-ax7.tick_params(axis='x', bottom=False)
+if ax3.get_legend() is not None:
+    ax3.get_legend().remove()
 
-if ax7.get_legend() is not None:
-    ax7.get_legend().remove()
-
-ax7.spines['top'].set_visible(False)
-ax7.spines['right'].set_visible(False)
-ax7.spines['bottom'].set_visible(False)
-ax7.spines['left'].set_visible(False)
-
-
+for side in ['top', 'right', 'bottom', 'left']:
+    ax3.spines[side].set_visible(False)
 
 plt.tight_layout()
 plt.show()
