@@ -42,7 +42,7 @@ def main(
     WACC = 0.07
     ANNUAL_DEMAND_GROWTH_RATE = 0.02
     ANNUAL_EFFICIENCY_CHANGE = 0.01
-    DEMAND_SHARE = "Europe" # To restrict the simulation to Europe only
+    DEMAND_SHARE = "Europe" # To restrict the simulation to a specific region
     MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
     DENSITY_SAF = 0.803  # kg/L density of SAF
     DT = 20  # Years for GWP* calculation
@@ -745,6 +745,17 @@ def main(
         functions.save_excel(
             value,
             f"{save_path}/abatement_costs_saf_{key}.xlsx",
+            index=True,
+            scenario_name=scenario_name[:31],
+        )
+    
+    for key,value in abatement_cost_daccs_only.items():
+        value = pd.DataFrame(value, index=value.index)
+        value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+
+        functions.save_excel(
+            value,
+            f"{save_path}/abatement_cost_daccs_{key}.xlsx",
             index=True,
             scenario_name=scenario_name[:31],
         )
