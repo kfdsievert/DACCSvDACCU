@@ -113,8 +113,8 @@ def load_input_abatement_cost(file_path, tech):
         ]
 
     # Descriptive statistics
-    input_abatement_cost_short = input_abatement_cost_short[cost_col].describe()
-    input_abatement_cost_long = input_abatement_cost_long[cost_col].describe()
+    input_abatement_cost_short = input_abatement_cost_short[cost_col].drop_duplicates().describe()
+    input_abatement_cost_long = input_abatement_cost_long[cost_col].drop_duplicates().describe()
 
     # For SAF, descriptive statistics are taken from High (75th percentile) and Low(25th percentile) CO2 prices
     if tech == "SAF":

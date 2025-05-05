@@ -4,31 +4,31 @@ import os
 
 sensitivity_scenarios = {
     "Default": { 
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282}, 
-                 "2050" : {"low": 147, "median" : 260, "high" : 495}},
+        "lcor" :{"2024" : {"low": 340, "median" : 591, "high" : 1371}, 
+                 "2050" : {"low": 160, "median" : 312, "high" : 543}},
         "electricity_price" : 39, #$/MWh
         "fuel_price" : 0.8 #$/l
 
     },
 
     "LE": {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
+        "lcor" :{"2024" : {"low": 340, "median" : 591, "high" : 1371},
+                    "2050" : {"low": 154, "median" : 292, "high" : 523}},
         "electricity_price" : 11, #$/MWh
         "fuel_price" : 0.8 #$/l
 
     },
 
     "HF" : { 
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 147, "median" : 260, "high" : 495}},
+        "lcor" :{"2024" : {"low": 340, "median" : 591, "high" : 1371},
+                    "2050" : {"low": 160, "median" : 312, "high" : 543}},
         "electricity_price" : 39, #$/MWh
         "fuel_price" : 1.7 #$/l
     },
 
     "HF_LE" : {
-        "lcor" :{"2024" : {"low": 295, "median" : 440, "high" : 1282},
-                    "2050" : {"low": 131, "median" : 260, "high" : 480}},
+        "lcor" :{"2024" : {"low": 340, "median" : 591, "high" : 1371},
+                    "2050" : {"low": 147, "median" : 292, "high" : 523}},
         "electricity_price" : 11, #$/MWh
         "fuel_price" : 1.7 #$/l
     } 

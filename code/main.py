@@ -29,6 +29,7 @@ def main(
     abatement_curve_saf, residual_emissions_saf = functions.load_input_abatement_cost(
         f"data/{saf_input}", tech="SAF"
     )
+    # daccs_input = "Master Standardisation DACCS_LE.xlsx"
     abatement_curve_daccs = functions.load_input_abatement_cost(
         f"data/{daccs_input}", tech="DACCS"
     )
