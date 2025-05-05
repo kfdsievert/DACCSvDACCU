@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = False
+RUN_SENSITIVITES = True
 
 
 def main(
@@ -42,7 +42,7 @@ def main(
     WACC = 0.07
     ANNUAL_DEMAND_GROWTH_RATE = 0.02
     ANNUAL_EFFICIENCY_CHANGE = 0.01
-    DEMAND_SHARE = "Europe" # To restrict the simulation to a specific region
+    DEMAND_SHARE = "Global" # To restrict the simulation to a specific region
     MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
     DENSITY_SAF = 0.803  # kg/L density of SAF
     DT = 20  # Years for GWP* calculation
@@ -727,6 +727,9 @@ def main(
             scenario_name=scenario_name[:31],
         )
 
+
+    # Abatement costs for SAF and DACCS. The values are ufloats, which are then mapped to the ranges as nominal value +/- std deviation.
+
     for key, value in abatement_costs_saf_per_ton_eq.items():
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
@@ -749,13 +752,27 @@ def main(
             scenario_name=scenario_name[:31],
         )
     
-    for key,value in abatement_cost_daccs_only.items():
+    for key,value in abatement_costs_daccs_per_ton_eq.items():
         value = pd.DataFrame(value, index=value.index)
         value.rename(columns={24: "Abatement Cost $ per tCO2eq"}, inplace=True)
+        try: 
+            value["Abatement Cost Range"] = value.index.map(
+                lambda x: value.loc[x, "Abatement Cost $ per tCO2eq"].n
+                - value.loc[x, "Abatement Cost $ per tCO2eq"].s
+                if x == "25%"
+                else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+                if x == "50%"
+                else value.loc[x, "Abatement Cost $ per tCO2eq"].n
+                + value.loc[x, "Abatement Cost $ per tCO2eq"].s
+                if x == "75%"
+                else None
+            )
+        except AttributeError:
+            value["Abatement Cost Range"] = value["Abatement Cost $ per tCO2eq"]
 
         functions.save_excel(
             value,
-            f"{save_path}/abatement_cost_daccs_{key}.xlsx",
+            f"{save_path}/abatement_costs_daccs_{key}.xlsx",
             index=True,
             scenario_name=scenario_name[:31],
         )
