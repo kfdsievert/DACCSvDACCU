@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = True
+RUN_SENSITIVITES = False
 
 
 def main(
@@ -29,12 +29,14 @@ def main(
     abatement_curve_saf, residual_emissions_saf = functions.load_input_abatement_cost(
         f"data/{saf_input}", tech="SAF"
     )
-    # daccs_input = "Master Standardisation DACCS_LE.xlsx"
+    # daccs_input = "Master Standardisation DACCS_LE.xlsx" # Testing for low electricity price
     abatement_curve_daccs = functions.load_input_abatement_cost(
         f"data/{daccs_input}", tech="DACCS"
     )
     base_inputs = functions.load_base_inputs("data/base_input_brazzola.csv")
     lee_df = functions.load_lee("data/lee_erf.csv")
+
+    # abatement_curve_saf.iloc[-1] = [984, 501, 1467] # Update for Blue hydrogen in SAF production. 
 
     # ---------------- Setup simulation parameters ----------------#
     SIMULATION_START = 2025
@@ -918,3 +920,5 @@ else:
         )
         # Sleep 2 seconds to avoid conflicting save files
         time.sleep(2)
+
+print ("All simulations completed.")
