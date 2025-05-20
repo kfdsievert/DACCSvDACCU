@@ -113,8 +113,12 @@ def load_input_abatement_cost(file_path, tech):
         ]
 
     # Descriptive statistics
-    input_abatement_cost_short = input_abatement_cost_short[cost_col].drop_duplicates().describe()
-    input_abatement_cost_long = input_abatement_cost_long[cost_col].drop_duplicates().describe()
+    input_abatement_cost_short = (
+        input_abatement_cost_short[cost_col].drop_duplicates().describe()
+    )
+    input_abatement_cost_long = (
+        input_abatement_cost_long[cost_col].drop_duplicates().describe()
+    )
 
     # For SAF, descriptive statistics are taken from High (75th percentile) and Low(25th percentile) CO2 prices
     if tech == "SAF":
@@ -265,7 +269,7 @@ def generate_equivalence_gwp(
     CONTRAIL_AVOIDANCE,
     REROUTING_FUEL_PENALTY,
     metric="GWP100",
-    blending_ratio=1
+    blending_ratio=1,
 ):
     """
     Calculates Equivalent CO2 emissions from GWP metrics as in Lee et. al. 2021
@@ -771,7 +775,7 @@ def generate_equivalence_gwp_star(
 
     """
 
-    H = 100  # 100 year time span. This is the default value for GWP100* in the code for Brazzola et. al. 2022 (https://doi.org/10.1038/s41558-022-01404-7)
+    H = 100  # 100 year time span. This is the default value for GWP20* in the code for Brazzola et. al. 2022 (https://doi.org/10.1038/s41558-022-01404-7)
     AGWP_CO2 = 0.088  # Absolute GWP of CO2 in mWm-2 yr Mt-1 from Lee et. al. 2021 Supplementary Material AGWP-CO2 sheet
 
     erf_df_fossil.index = erf_df_fossil.index.year
@@ -872,7 +876,9 @@ def calculate_abatement_cost_saf(abatement_cost_saf, gwp_df, year, SIMULATION_ST
     """
 
     # Total CO2 emissions in 2050 (same for GWP and GWP*)
-    total_co2 = (gwp_df.loc["GWP100 BAU", "CO2"] - gwp_df.loc["GWP100 SAF", "CO2"]) * 10**6  # In T of CO2
+    total_co2 = (
+        gwp_df.loc["GWP100 BAU", "CO2"] - gwp_df.loc["GWP100 SAF", "CO2"]
+    ) * 10**6  # In T of CO2
 
     # Abatement cost for SAF in 2050 (same for GWP and GWP*)
     abatement_cost = abatement_cost_saf.loc[year - SIMULATION_START - 1] * total_co2
@@ -998,7 +1004,6 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
     total_abatement_daccs = gwp.loc[
         "GWP100 BAU", "CO2"
     ]  # Same for all scenarios, in MT CO2
-    
 
     non_co2_emissions_to_abate_gwp_100 = (
         gwp.loc["GWP100 BAU", "Total"]
@@ -1024,7 +1029,6 @@ def calculate_total_abatement_cost_dac_non_co2(abatement_curve_daccs, gwp, gwp_s
     ratio_gwp_star = non_co2_emissions_to_abate_gwp_star / (
         total_abatement_daccs * 10**6
     )
-   
 
     abatement_cost_per_ton_co2_2050 = abatement_curve_daccs.iloc[-1]  # in $/T CO2
 
@@ -1181,6 +1185,22 @@ def calculate_normalised_rf(normalized_ice_particle_number):
     # Perform interpolation with the normalized
     normalized_rf = np.interp(normalized_ice_particle_number, x_smooth, y_smooth)
 
+    # Show a plot with the fitted curve
+    if normalized_ice_particle_number < 1.0:
+        plt.plot(x_smooth, y_smooth, "r-", label="Fitted Curve")
+        plt.scatter(
+            normalized_ice_particle_number,
+            normalized_rf,
+            color="blue",
+            label="Interpolated Point",
+        )
+        plt.xlabel("Normalized Ice Particle Number")
+        plt.ylabel("Normalized RF")
+        plt.title("Normalized RF vs Normalized Ice Particle Number")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
     return normalized_rf
 
 
@@ -1282,6 +1302,10 @@ def update_emission_factors(
         future_nucleated_ice_particles_ht / ICE_PARTICLE_ESTIMATE_PER_KM_2050
     )
 
+    # Update from Markl et. al. 2024 
+    if tech == "SAF":
+        normalised_nucleated_ice_particles = [[0.44, 0.44]]
+
     vectorized_calculate_normalised_rf = np.vectorize(calculate_normalised_rf)
     rf_factors = vectorized_calculate_normalised_rf(normalised_nucleated_ice_particles)
     rf_factors_ht = vectorized_calculate_normalised_rf(
@@ -1298,10 +1322,12 @@ def update_emission_factors(
         rf_factors = rf_factors - CONTRAIL_REDUCTION
 
     if isinstance(rf_factors[0][0], UFloat):
-        nominal_rf_factor = np.average(rf_factors, weights = [[0.7, 0.3]]).nominal_value # Higher proportion of flights in the colder region for contrail formation
+        nominal_rf_factor = (
+            np.average(rf_factors, weights=[[0.7, 0.3]]).nominal_value
+        )  # Higher proportion of flights in the colder region for contrail formation
         std_rf_factor = rf_factors[0][0].std_dev
     else:
-        nominal_rf_factor = np.average(rf_factors, weights= [[0.7, 0.3]])
+        nominal_rf_factor = np.average(rf_factors, weights=[[0.7, 0.3]])
         std_rf_factor = np.std(rf_factors)
 
     new_contrail_factor = ufloat(nominal_rf_factor, std_rf_factor)
@@ -1444,33 +1470,89 @@ def calculate_weighted_abatement_cost(emission_components: List[Tuple[float, flo
 
     return total_abatement_cost
 
-def calculate_contribution_to_abatement_cost(abated_emissions_df, abatement_cost_saf, abatement_cost_daccs, abatement_cost_hydrotreatment, total_abated_emissions, abatement_cost_contrail_avoidance=None):
 
+def calculate_contribution_to_abatement_cost(
+    abated_emissions_df,
+    abatement_cost_saf,
+    abatement_cost_daccs,
+    abatement_cost_hydrotreatment,
+    total_abated_emissions,
+    abatement_cost_contrail_avoidance=None,
+):
     metrics = ["GWP100", "GWP20"]
     cost_ranges = ["25%", "50%", "75%"]
 
-    abatement_contribution = {cost_range : pd.DataFrame(0, index = abated_emissions_df.index, columns = ["Contribution"]) for cost_range in cost_ranges}
+    abatement_contribution = {
+        cost_range: pd.DataFrame(
+            0, index=abated_emissions_df.index, columns=["Contribution"]
+        )
+        for cost_range in cost_ranges
+    }
 
     for metric in metrics:
-        for cost_range in cost_ranges: 
+        for cost_range in cost_ranges:
+            abatement_contribution[cost_range].loc[f"{metric} SAF"] = np.array(
+                (
+                    abated_emissions_df.loc[f"{metric} SAF", "Total"]
+                    * abatement_cost_saf[metric].loc[cost_range]
+                )
+                / total_abated_emissions[metric]
+            )
 
-            abatement_contribution[cost_range].loc[f"{metric} SAF"]  = np.array((abated_emissions_df.loc[f"{metric} SAF", "Total"] *  abatement_cost_saf[metric].loc[cost_range]) / total_abated_emissions[metric])
+            abatement_contribution[cost_range].loc[f"{metric} SAF DACCS"] = np.array(
+                (
+                    abated_emissions_df.loc[f"{metric} SAF DACCS", "Total"]
+                    * abatement_cost_daccs[metric].loc[cost_range]
+                )
+                / total_abated_emissions[metric]
+            )
 
-            abatement_contribution[cost_range].loc[f"{metric} SAF DACCS"] = np.array((abated_emissions_df.loc[f"{metric} SAF DACCS", "Total"] *  abatement_cost_daccs[metric].loc[cost_range]) / total_abated_emissions[metric])
-
-            abatement_contribution[cost_range].loc[f"{metric} BAU DACCS"] = np.array((abated_emissions_df.loc[f"{metric} BAU DACCS", "Total"] *  abatement_cost_daccs[metric].loc[cost_range]) / total_abated_emissions[metric])
+            abatement_contribution[cost_range].loc[f"{metric} BAU DACCS"] = np.array(
+                (
+                    abated_emissions_df.loc[f"{metric} BAU DACCS", "Total"]
+                    * abatement_cost_daccs[metric].loc[cost_range]
+                )
+                / total_abated_emissions[metric]
+            )
 
             if abatement_cost_contrail_avoidance is not None:
+                abatement_contribution[cost_range].loc[
+                    f"{metric} Contrail Avoidance BAU"
+                ] = np.array(
+                    (
+                        abated_emissions_df.loc[
+                            f"{metric} Contrail Avoidance BAU", "Total"
+                        ]
+                        * abatement_cost_contrail_avoidance.loc[f"{metric} BAU"]
+                    )
+                    / total_abated_emissions[metric]
+                )
+                abatement_contribution[cost_range].loc[
+                    f"{metric} Contrail Avoidance SAF"
+                ] = np.array(
+                    (
+                        abated_emissions_df.loc[
+                            f"{metric} Contrail Avoidance SAF", "Total"
+                        ]
+                        * abatement_cost_contrail_avoidance.loc[f"{metric} SAF"]
+                    )
+                    / total_abated_emissions[metric]
+                )
 
-                abatement_contribution[cost_range].loc[f"{metric} Contrail Avoidance BAU"] = np.array((abated_emissions_df.loc[f"{metric} Contrail Avoidance BAU", "Total"] *  abatement_cost_contrail_avoidance.loc[f"{metric} BAU"]) / total_abated_emissions[metric])
-                abatement_contribution[cost_range].loc[f"{metric} Contrail Avoidance SAF"] = np.array((abated_emissions_df.loc[f"{metric} Contrail Avoidance SAF", "Total"] *  abatement_cost_contrail_avoidance.loc[f"{metric} SAF"]) / total_abated_emissions[metric])
+            if abatement_cost_hydrotreatment["Green"].loc[f"{metric} BAU"] > 0:
+                abatement_contribution[cost_range].loc[f"{metric} Hydrotreatment"] = (
+                    np.array(
+                        (
+                            abated_emissions_df.loc[f"{metric} Hydrotreatment", "Total"]
+                            * abatement_cost_hydrotreatment["Green"].loc[
+                                f"{metric} BAU"
+                            ]
+                        )
+                        / total_abated_emissions[metric]
+                    )
+                )
 
-            if abatement_cost_hydrotreatment["Green"].loc[f"{metric} BAU"] > 0 : 
-                abatement_contribution[cost_range].loc[f"{metric} Hydrotreatment"] = np.array((abated_emissions_df.loc[f"{metric} Hydrotreatment", "Total"] *  abatement_cost_hydrotreatment["Green"].loc[f"{metric} BAU"]) / total_abated_emissions[metric])
-
-
-    return abatement_contribution      
-
+    return abatement_contribution
 
 
 def initialize_hydrotreatment_cost_params():
@@ -1511,13 +1593,13 @@ def initialize_hydrotreatment_emission_params():
     baseline_h2 = 1  # Baseline taken as 1
 
     # Emissions from Hydrotreated Jet A-1 with grey hydrogen
-    ht_so2_grey = 0.0111  # g/l of fuel
+    ht_so2_grey = 0.0007  # g/l of fuel
     ht_co2_per_l_grey = 2.55  # kg/l
     ht_bc_grey = 0.01656  # reduction by 31% in line with SAF
     ht_h2_grey = 1.12  # 12 % increase as for SAF
 
     # Emissions from Hydrotreated Jet A-1 with green hydrogen
-    ht_so2_green = 0.0111
+    ht_so2_green = 0.0007
     ht_co2_per_l_green = 2.55
     ht_bc_green = 0.01656  # reduction by 31% in line with SAF
     ht_h2_green = 1.12
@@ -1649,11 +1731,12 @@ def calculate_additional_abatement_hydrotreatment(
                     # Contrails are calculated separately based on soot reduction
                     if component != "Contrail Cirrus and C-C":
                         # Abated emissions are calculated by subtracting the emissions from hydrotreated fuel from baseline fuel (either 100% fossil or 100% SAF)
-                       df.loc[f"{metric} {scenario}", component]  = np.array(gwp.loc[
-                            f"{metric} {scenario}", component
-                        ] - (
+                        df.loc[f"{metric} {scenario}", component] = np.array(
                             gwp.loc[f"{metric} {scenario}", component]
-                            * emission_params[f"{component} {df_name}"])
+                            - (
+                                gwp.loc[f"{metric} {scenario}", component]
+                                * emission_params[f"{component} {df_name}"]
+                            )
                         )
                     elif component == "Contrail Cirrus and C-C":
                         df.loc[f"{metric} {scenario}", component] = np.array(
