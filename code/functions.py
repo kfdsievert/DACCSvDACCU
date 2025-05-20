@@ -1185,21 +1185,6 @@ def calculate_normalised_rf(normalized_ice_particle_number):
     # Perform interpolation with the normalized
     normalized_rf = np.interp(normalized_ice_particle_number, x_smooth, y_smooth)
 
-    # Show a plot with the fitted curve
-    if normalized_ice_particle_number < 1.0:
-        plt.plot(x_smooth, y_smooth, "r-", label="Fitted Curve")
-        plt.scatter(
-            normalized_ice_particle_number,
-            normalized_rf,
-            color="blue",
-            label="Interpolated Point",
-        )
-        plt.xlabel("Normalized Ice Particle Number")
-        plt.ylabel("Normalized RF")
-        plt.title("Normalized RF vs Normalized Ice Particle Number")
-        plt.legend()
-        plt.grid()
-        plt.show()
 
     return normalized_rf
 
@@ -1215,6 +1200,7 @@ def update_emission_factors(
     ht_emission_params,
     show_plots=False,
     tech="SAF",
+    sensitivity_name = "Default"
 ):
     """
 
@@ -1314,6 +1300,9 @@ def update_emission_factors(
     rf_factors_ht_median = np.average(rf_factors_ht)
     rf_factors_ht_std = np.std(rf_factors_ht)
     rf_factors_ht = ufloat(rf_factors_ht_median, rf_factors_ht_std)
+
+    if tech == "SAF" and sensitivity_name == "CA": 
+        rf_factors = np.array([[0.64, 0.64]])
 
     if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
         rf_factors = rf_factors - CONTRAIL_REDUCTION

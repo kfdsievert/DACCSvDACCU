@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = False
+RUN_SENSITIVITES = True
 
 
 def main(
@@ -23,7 +23,6 @@ def main(
     # ---------------- Scenario Descriptions ----------------#
     # BAU: Business as Usual, fossil fuelled aircraft are used for 100% of flights. Demand growth and efficiency improvements dictate emissions.
     # SAF: SAF is deployed according to the progression curve in Brazzola et al. 2024. DACCS is used to abate residual emissions from synfuel manufacture, leading to "Net-zero" emissions from aviation.
-    # NOTE SAF scenario DOES NOT use DACCS to abate remaining NOx and C-C emissions.
     # ---------------- Load inputs ----------------#
 
     abatement_curve_saf, residual_emissions_saf = functions.load_input_abatement_cost(
@@ -51,11 +50,7 @@ def main(
     DT = 20  # Years for GWP* calculation
     SOOT_PARTICLE_ESTIMATE_PER_KM_2025 = [
         1e15
-    ]  # Current estimate of ice particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
-    if "CA" in sensitivity_name:
-        SAF_SOOT_PARTICLE_REDUCTION = 0.52
-    else:
-        SAF_SOOT_PARTICLE_REDUCTION = 0.31  # 31% or 52% reduction in soot particles from SAF compared to fossil fuel (Markl 2024)
+    ]  # Current estimate of soot particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
 
     BLENDING_RATIO = 1  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
     CONTRAIL_REDUCTION = ufloat(
@@ -89,7 +84,7 @@ def main(
         "netNOx": 1,  # Own research
         "Contrail Cirrus and C-C": 0,  # Calculated in the simulation
         "BC": 1
-        - SAF_SOOT_PARTICLE_REDUCTION,  # 31% reduction in soot particles from SAF compared to fossil fuel (interviews)
+        - 0.31,  # 31% reduction in soot particles from SAF compared to fossil fuel (interviews)
         "SO2": 0,  # Brazzola 2024
         "H2O": 1.12,  # Brazzola 2024
     }
@@ -145,13 +140,14 @@ def main(
             N_YEARS,
             ANNUAL_EFFICIENCY_CHANGE,
             SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
-            SAF_SOOT_PARTICLE_REDUCTION,
+            0.31,
             CONTRAIL_AVOIDANCE,
             CONTRAIL_REDUCTION,
             HYDROTREATMENT,
             hydrotreatment_emission_params,
             show_plots=False,
             tech="SAF",
+            sensitivity_name=sensitivity_name,
         )
     )
     # Efficiency improvement
@@ -160,7 +156,7 @@ def main(
             N_YEARS,
             ANNUAL_EFFICIENCY_CHANGE,
             SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
-            SAF_SOOT_PARTICLE_REDUCTION,
+            0.31,
             CONTRAIL_AVOIDANCE,
             CONTRAIL_REDUCTION,
             HYDROTREATMENT,
@@ -175,7 +171,7 @@ def main(
             N_YEARS,
             ANNUAL_EFFICIENCY_CHANGE,
             SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
-            SAF_SOOT_PARTICLE_REDUCTION,
+            0.31,
             CONTRAIL_AVOIDANCE,
             CONTRAIL_REDUCTION=0,
             HYDROTREATMENT={"Fossil": False, "SAF": False},
@@ -192,7 +188,7 @@ def main(
         N_YEARS,
         ANNUAL_EFFICIENCY_CHANGE,
         SOOT_PARTICLE_ESTIMATE_PER_KM_2025,
-        SAF_SOOT_PARTICLE_REDUCTION,
+        0.31,
         CONTRAIL_AVOIDANCE,
         CONTRAIL_REDUCTION=0,
         HYDROTREATMENT={"Fossil": False, "SAF": False},
@@ -200,6 +196,9 @@ def main(
         show_plots=False,
         tech="Fossil",
     )
+
+    if "CA" in sensitivity_name:
+        emission_factors["SAF"]["Contrail Cirrus and C-C"] = 0.
 
     # --------------- Generate CO2 Emissions based on demand ---------------#
     # Future emissions from aviation in BAU scenario. NOTE: These are NOT adjusted for contrail avoidance as it is only applied in 2050 and not applied for GWP*
@@ -841,6 +840,12 @@ sensitivity_scenarios = {
         "SAF": "Master Standardisation_SAF_Default.xlsx",
         "DACCS": "Master Standardisation DACCS.xlsx",
     },
+
+    "CA": {
+        "SAF": "Master Standardisation_SAF_Default.xlsx",
+        "DACCS": "Master Standardisation DACCS.xlsx",
+    },
+
     "LE": {
         "SAF": "Master Standardisation_SAF_LE.xlsx",
         "DACCS": "Master Standardisation DACCS_LE.xlsx",
@@ -864,11 +869,7 @@ sensitivity_scenarios = {
     "HF_CA": {
         "SAF": "Master Standardisation_SAF_HF.xlsx",
         "DACCS": "Master Standardisation DACCS.xlsx",
-    },
-    "CA": {
-        "SAF": "Master Standardisation_SAF_Default.xlsx",
-        "DACCS": "Master Standardisation DACCS.xlsx",
-    },
+    }
 }
 
 
