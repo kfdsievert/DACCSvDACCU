@@ -53,9 +53,16 @@ def main(
     ]  # Current estimate of soot particles per km from Karcher (2018) Fig. 3 (https://www.nature.com/articles/s41467-018-04068-0) or Markl (2024) Fig. 3 (https://acp.copernicus.org/articles/24/3813/2024/acp-24-3813-2024.pdf) The list is lower and upper bound of the estimate.
 
     BLENDING_RATIO = 1  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
-    CONTRAIL_REDUCTION = ufloat(
-        0.57, 0.07
-    )  # 50-64% Contrails reduced by re-routing (Multiple interviews)
+
+    # Contrail avoidance is picked to avoid negative emissions when CA sensitivity is applied.
+    if sensitivity_name != "CA":
+        CONTRAIL_REDUCTION = ufloat(
+            0.57, 0.07
+        )  # 50-64% Contrails reduced by re-routing (Multiple interviews)
+    else: 
+        CONTRAIL_REDUCTION = ufloat(
+            0.52, 0.06
+        )
     REROUTING_FUEL_PENALTY = ufloat(
         0.003, 0.002
     )  # 0.1-0.5% increase in fuel burn (A Martin Frias et. al. (2024): https://iopscience.iop.org/article/10.1088/2634-4505/ad310c#erisad310cs3,  Google (2023): https://blog.google/technology/ai/ai-airlines-contrails-climate-change/)
@@ -874,12 +881,12 @@ sensitivity_scenarios = {
 
 
 contrail_avoidance_options = [
-    {"Fossil": True, "SAF": True},
     {"Fossil": False, "SAF": False},
+    {"Fossil": True, "SAF": True},
 ]
 hydrotreatment_options = [
-    {"Fossil": True, "SAF": False},
     {"Fossil": False, "SAF": False},
+    {"Fossil": True, "SAF": False},
 ]
 so2_abatement_options = [True, False]
 

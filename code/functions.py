@@ -1302,7 +1302,7 @@ def update_emission_factors(
     rf_factors_ht = ufloat(rf_factors_ht_median, rf_factors_ht_std)
 
     if tech == "SAF" and sensitivity_name == "CA": 
-        rf_factors = np.array([[0.64, 0.64]])
+        rf_factors = np.array([[0.59, 0.59]])
 
     if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
         rf_factors = rf_factors - CONTRAIL_REDUCTION
