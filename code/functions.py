@@ -1288,6 +1288,8 @@ def update_emission_factors(
         future_nucleated_ice_particles_ht / ICE_PARTICLE_ESTIMATE_PER_KM_2050
     )
 
+    normalised_nucleated_ice_particles_ht = [[0.44,0.44]] # Update from fuel properties in Markl et. al. 2024
+
     # Update from Markl et. al. 2024 
     if tech == "SAF":
         normalised_nucleated_ice_particles = [[0.44, 0.44]]
@@ -1585,13 +1587,13 @@ def initialize_hydrotreatment_emission_params():
     ht_so2_grey = 0.0007  # g/l of fuel
     ht_co2_per_l_grey = 2.55  # kg/l
     ht_bc_grey = 0.01656  # reduction by 31% in line with SAF
-    ht_h2_grey = 1.12  # 12 % increase as for SAF
+    ht_h2_grey = 1.07  # 7 % increase as for SAF
 
     # Emissions from Hydrotreated Jet A-1 with green hydrogen
     ht_so2_green = 0.0007
     ht_co2_per_l_green = 2.55
     ht_bc_green = 0.01656  # reduction by 31% in line with SAF
-    ht_h2_green = 1.12
+    ht_h2_green = 1.07
 
     additional_co2_emissions_ht_grey = 0.14
     additional_co2_emissions_ht_green = 0.01

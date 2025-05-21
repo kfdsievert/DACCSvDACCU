@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = True
+RUN_SENSITIVITES = False
 
 
 def main(
@@ -92,8 +92,8 @@ def main(
         "Contrail Cirrus and C-C": 0,  # Calculated in the simulation
         "BC": 1
         - 0.31,  # 31% reduction in soot particles from SAF compared to fossil fuel (interviews)
-        "SO2": 0,  # Brazzola 2024
-        "H2O": 1.12,  # Brazzola 2024
+        "SO2": 0.03,  # Brazzola 2024
+        "H2O": 1.07,  # Brazzola 2024
     }
 
     fossil_factors = {"Contrail Cirrus and C-C": 1}
@@ -690,8 +690,18 @@ def main(
         save_path = f"outputs/{folder_name}"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-    gwp_baseline.to_csv(f"{save_path}/gwp_baseline.csv")
-    gwp_star.to_csv(f"{save_path}/gwp_star.csv")
+    functions.save_excel(
+        gwp_baseline,
+        f"{save_path}/gwp_baseline.xlsx",
+        index=True,
+        scenario_name=scenario_name[:31],
+    )
+    functions.save_excel(
+        gwp_star,
+        f"{save_path}/gwp_star.xlsx",
+        index=True,
+        scenario_name=scenario_name[:31],
+    )
 
     for df_name, abated_emissions in abated_emissions_dict.items():
         abated_emissions = pd.DataFrame(abated_emissions, index=[0])
