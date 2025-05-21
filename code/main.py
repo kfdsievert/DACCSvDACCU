@@ -466,7 +466,7 @@ def main(
         hydrotreatment_emission_params,
         rf_factor_ht_saf,
         rf_factor_ht_fossil,
-        gwp,
+        gwp_baseline,
         MJ_PER_L,
         ANNUAL_EFFICIENCY_CHANGE,
         N_YEARS,
