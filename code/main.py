@@ -61,7 +61,7 @@ def main(
         )  # 50-64% Contrails reduced by re-routing (Multiple interviews)
     else: 
         CONTRAIL_REDUCTION = ufloat(
-            0.52, 0.06
+            0.48, 0.06
         )
     REROUTING_FUEL_PENALTY = ufloat(
         0.003, 0.002
