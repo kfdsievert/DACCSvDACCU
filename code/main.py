@@ -35,7 +35,7 @@ def main(
     base_inputs = functions.load_base_inputs("data/base_input_brazzola.csv")
     lee_df = functions.load_lee("data/lee_erf.csv")
 
-    # abatement_curve_saf.iloc[-1] = [984, 501, 1467] # Update for Blue hydrogen in SAF production. 
+    abatement_curve_saf.iloc[-1] = [684, 156, 1431] # Update for Blue hydrogen in SAF production. 
 
     # ---------------- Setup simulation parameters ----------------#
     SIMULATION_START = 2025
