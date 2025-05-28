@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = False
+RUN_SENSITIVITES = True
 
 
 def main(
@@ -35,7 +35,7 @@ def main(
     base_inputs = functions.load_base_inputs("data/base_input_brazzola.csv")
     lee_df = functions.load_lee("data/lee_erf.csv")
 
-    abatement_curve_saf.iloc[-1] = [684, 156, 1431] # Update for Blue hydrogen in SAF production. 
+    #abatement_curve_saf.iloc[-1] = [684, 156, 1431] # Update for Blue hydrogen in SAF production. 
 
     # ---------------- Setup simulation parameters ----------------#
     SIMULATION_START = 2025
@@ -55,7 +55,7 @@ def main(
     BLENDING_RATIO = 1  # Blending ratio of SAF in the fuel mix. This shifts the progression curve. Default is 1 (100% SAF by 2050)
 
     # Contrail avoidance is picked to avoid negative emissions when CA sensitivity is applied.
-    if sensitivity_name != "CA":
+    if "CA" not in sensitivity_name:
         CONTRAIL_REDUCTION = ufloat(
             0.57, 0.07
         )  # 50-64% Contrails reduced by re-routing (Multiple interviews)
@@ -154,7 +154,7 @@ def main(
             hydrotreatment_emission_params,
             show_plots=False,
             tech="SAF",
-            sensitivity_name=sensitivity_name,
+            sensitivity_name=sensitivity_name
         )
     )
     # Efficiency improvement
@@ -169,7 +169,7 @@ def main(
             HYDROTREATMENT,
             hydrotreatment_emission_params,
             show_plots=False,
-            tech="Fossil",
+            tech="Fossil"
         )
     )
     # Base condition is when contrail avoidance and hydrotreatment are not applied, hence Contrail Reduction is set to 0.
@@ -185,6 +185,7 @@ def main(
             ht_emission_params=hydrotreatment_emission_params,
             show_plots=False,
             tech="SAF",
+            sensitivity_name= sensitivity_name
         )
     )
 
@@ -203,9 +204,6 @@ def main(
         show_plots=False,
         tech="Fossil",
     )
-
-    if "CA" in sensitivity_name:
-        emission_factors["SAF"]["Contrail Cirrus and C-C"] = 0.
 
     # --------------- Generate CO2 Emissions based on demand ---------------#
     # Future emissions from aviation in BAU scenario. NOTE: These are NOT adjusted for contrail avoidance as it is only applied in 2050 and not applied for GWP*

@@ -1303,7 +1303,7 @@ def update_emission_factors(
     rf_factors_ht_std = np.std(rf_factors_ht)
     rf_factors_ht = ufloat(rf_factors_ht_median, rf_factors_ht_std)
 
-    if tech == "SAF" and sensitivity_name == "CA": 
+    if tech == "SAF" and "CA" in sensitivity_name: 
         rf_factors = np.array([[0.56, 0.56]])
 
     if CONTRAIL_AVOIDANCE["SAF"] and tech == "SAF":
