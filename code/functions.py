@@ -1764,6 +1764,94 @@ def calculate_additional_abatement_cost_hydrotreatment(
 
     return abatement_cost_dfs
 
+def initialize_blue_hydrogen_params():
+
+    min_params = {
+        "h2_cost": 1.9, # $/kg
+        "h2_emissions": 1, # kg CO2/kg H2
+        "ng_consumption": 3.4, # kg CH4/kg H2
+        "leakage_rate": 0.0016, # fraction of leakage
+        "natural_gas_cost": 5.6, # $/GJ
+        "h2_per_liter": 0.36, # kg H2/liter of fuel
+        "co2_per_liter": 2.26, # kg CO2/liter of fuel
+        "ft_cost": 0.3 # $/l fuel
+    }
+
+    max_params = {
+        "h2_cost": 2.9,  # $/kg
+        "h2_emissions": 2.7,  # kg CO2/kg H2
+        "ng_consumption": 3.4,  # kg CH4/kg H2
+        "leakage_rate": 0.01,  # fraction of leakage
+        "natural_gas_cost": 5.6,  # $/GJ
+        "h2_per_liter": 0.5, # kg H2/liter of fuel
+        "co2_per_liter": 3.5, # kg CO2/liter of fuel
+        "ft_cost": 1.5 # $/l fuel
+    }
+
+    return min_params, max_params
+
+def calculate_blue_synfuel_emissions(min_params, max_params, gwp_equivalent_methane="GWP100"):
+
+    if gwp_equivalent_methane == "GWP100":
+        gwp_multiplier = 36
+    elif gwp_equivalent_methane == "GWP20":
+        gwp_multiplier = 84
+
+    LHV_H2 = 120  # MJ/kg, lower heating value of hydrogen
+    DENSITY_SAF = 34.69 #MJ/L, density of SAF
+
+    min_emissions = {
+        "CO2" : min_params["h2_emissions"] * 1000 / LHV_H2,
+        "Methane": (min_params["ng_consumption"] * min_params["leakage_rate"] * gwp_multiplier) * 1000/ LHV_H2,
+    }
+
+    min_emissions["Total"] = (
+        min_emissions["CO2"] + min_emissions["Methane"]
+    )
+
+    max_emissions = {
+        "CO2" : max_params["h2_emissions"] * 1000 / LHV_H2,
+        "Methane": (max_params["ng_consumption"] * max_params["leakage_rate"] * gwp_multiplier) * 1000/ LHV_H2,
+    }
+
+    max_emissions["Total"] = (
+        max_emissions["CO2"] + max_emissions["Methane"]
+    )
+    
+    # Convert emissions to kg CO2eq per liter of fuel
+    min_emissions["Total"] *= DENSITY_SAF # gCO2eq/L
+    max_emissions["Total"] *= DENSITY_SAF # gCO2eq/L
+
+    min_daccs_per_l = min_emissions["Total"] / 1000
+    max_daccs_per_l = max_emissions["Total"] / 1000
+
+    return min_daccs_per_l, max_daccs_per_l
+
+
+def recalculate_synfuel_cost_blue_hydrogen(min_params, max_params, min_daccs_per_l, max_daccs_per_l, lcor):
+
+    ts_daccs = 25 # Transport and storage cost of DACCS in $/t CO2
+    min_h2_cost = min_params["h2_cost"] * min_params["h2_per_liter"]  # $/L
+    max_h2_cost = max_params["h2_cost"] * max_params["h2_per_liter"]  # $/L
+    median_h2_cost = np.mean([min_h2_cost, max_h2_cost])
+
+    min_co2_cost = min_params["co2_per_liter"] * lcor["low"]
+    median_co2_cost = min_params["co2_per_liter"] * lcor["median"]
+    max_co2_cost = min_params["co2_per_liter"] * lcor["high"]
+
+    min_daccs_offset_cost = min_daccs_per_l * (lcor["low"] + ts_daccs)
+    median_daccs_offset_cost = min_daccs_per_l * (lcor["median"] + ts_daccs)
+    max_daccs_offset_cost = min_daccs_per_l * (lcor["high"] + ts_daccs)
+
+    min_ft_cost = min_params["ft_cost"]  # $/L
+    max_ft_cost = max_params["ft_cost"]  # $/L
+    median_ft_cost = np.mean([min_ft_cost, max_ft_cost])
+
+    min_synfuel_cost = min_h2_cost + min_ft_cost + min_daccs_offset_cost + min_co2_cost
+    median_synfuel_cost = median_h2_cost + median_ft_cost + median_daccs_offset_cost + median_co2_cost
+    max_synfuel_cost = max_h2_cost + max_ft_cost + max_daccs_offset_cost + max_co2_cost
+
+    return [median_synfuel_cost, min_synfuel_cost, max_synfuel_cost]
 
 def calculate_daccs_cost_remaining_emissions(
     gwp_baseline, gwp_star, abated_emissions_dict, abatement_curve_daccs

@@ -35,8 +35,6 @@ def main(
     base_inputs = functions.load_base_inputs("data/base_input_brazzola.csv")
     lee_df = functions.load_lee("data/lee_erf.csv")
 
-    #abatement_curve_saf.iloc[-1] = [684, 156, 1431] # Update for Blue hydrogen in SAF production. 
-
     # ---------------- Setup simulation parameters ----------------#
     SIMULATION_START = 2025
     SIMULATION_END = 2050
@@ -83,6 +81,10 @@ def main(
     # Whether Hydrotreatment is applied or not. Only in 2050.
     HYDROTREATMENT = hydrotreatment
 
+    # If blue hydrogen is used in SAF production. 
+    BLUE_H2 = True
+    GWP_EQUIVALENT_CH4 = "GWP100" # GWP equivalence metric used for methane leakage. Options are "GWP100" or "GWP20".
+
     # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
     # These are multipliers for the level of emissions from SAF fuelled aircraft.
@@ -125,6 +127,22 @@ def main(
         # Aviation specific
         "Contrail Cirrus and C-C": 9.36e-10,  # mW/m²/km
     }
+
+    # ----------------- Update for blue hydrogen if used -----------------#
+    if BLUE_H2:
+        min_params, max_params = functions.initialize_blue_hydrogen_params()
+
+        min_daccs_per_l, max_daccs_per_l = functions.calculate_blue_synfuel_emissions(min_params, max_params, gwp_equivalent_methane = GWP_EQUIVALENT_CH4)
+
+        # LCORs without T&S costs
+
+        lcor = {
+            "low" : 134,
+            "median" : 285,
+            "high" : 517
+        }
+
+        abatement_curve_saf.iloc[-1] = functions.recalculate_synfuel_cost_blue_hydrogen(min_params, max_params, min_daccs_per_l, max_daccs_per_l, lcor)
 
     # ---------------- Generate aviation demand ----------------#
     df_demand = functions.generate_aviation_demand(
