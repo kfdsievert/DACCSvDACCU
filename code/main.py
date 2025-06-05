@@ -82,7 +82,7 @@ def main(
     HYDROTREATMENT = hydrotreatment
 
     # If blue hydrogen is used in SAF production. 
-    BLUE_H2 = True
+    BLUE_H2 = False
     GWP_EQUIVALENT_CH4 = "GWP100" # GWP equivalence metric used for methane leakage. Options are "GWP100" or "GWP20".
 
     # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
