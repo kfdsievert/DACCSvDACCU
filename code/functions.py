@@ -347,7 +347,6 @@ def generate_equivalence_gwp(
     bc_net_year = (
         bc_net_2018
         * (dist_net_year / dist_net_2018)
-        * (1 - ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
     )  # BC emissions in given year in Mt corrected for demand and efficiency changes
 
     h2o_net_year = (
@@ -1795,7 +1794,7 @@ def calculate_blue_synfuel_emissions(min_params, max_params, gwp_equivalent_meth
     if gwp_equivalent_methane == "GWP100":
         gwp_multiplier = 36
     elif gwp_equivalent_methane == "GWP20":
-        gwp_multiplier = 84
+        gwp_multiplier = 86
 
     LHV_H2 = 120  # MJ/kg, lower heating value of hydrogen
     DENSITY_SAF = 34.69 #MJ/L, density of SAF
