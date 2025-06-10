@@ -8,7 +8,7 @@ import time
 from uncertainties import ufloat
 
 # Determine if the script should run for each sensitivity (electricity price, fossil fuel price, and contrail avoidance.)
-RUN_SENSITIVITES = True
+RUN_SENSITIVITES = False
 
 
 def main(
@@ -40,7 +40,7 @@ def main(
     SIMULATION_END = 2050
     N_YEARS = SIMULATION_END - SIMULATION_START
     WACC = 0.07
-    ANNUAL_DEMAND_GROWTH_RATE = 0.02
+    ANNUAL_DEMAND_GROWTH_RATE = 0.04
     ANNUAL_EFFICIENCY_CHANGE = 0.01
     DEMAND_SHARE = "Global" # To restrict the simulation to a specific region
     MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
@@ -719,40 +719,44 @@ def main(
         scenario_name=scenario_name[:31],
     )
 
-    for df_name, abated_emissions in abated_emissions_dict.items():
-        abated_emissions = pd.DataFrame(abated_emissions, index=[0])
+    #for df_name, abated_emissions in abated_emissions_dict.items():
+    #    abated_emissions = pd.DataFrame(abated_emissions, index=[0])
 
-        functions.save_excel(
-            abated_emissions,
-            f"{save_path}/abated_emissions_{df_name}.xlsx",
-            index=False,
-            scenario_name=scenario_name[:31],
-        )
+    #   functions.save_excel(
+    #        abated_emissions,
+    #        f"{save_path}/abated_emissions_{df_name}.xlsx",
+    #        index=False,
+    #        scenario_name=scenario_name[:31],
+    #    )
 
-    if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
-        functions.save_excel(
-            abated_emissions_contrail_avoidance,
-            f"{save_path}/abated_emissions_contrail_avoidance.xlsx",
-            index=True,
-            scenario_name=scenario_name[:31],
-        )
+    #if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
+    #    functions.save_excel(
+    #        abated_emissions_contrail_avoidance,
+    #        f"{save_path}/abated_emissions_contrail_avoidance.xlsx",
+    #        index=True,
+    #        scenario_name=scenario_name[:31],
+    #    )
 
     if HYDROTREATMENT["SAF"] or HYDROTREATMENT["Fossil"]:
         for df_name, df in abatement_costs_hydrotreatment.items():
-            functions.save_excel(
-                df,
-                f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.xlsx",
-                index=True,
-                scenario_name=scenario_name[:31],
-            )
+            # Grey hydrogen is not considered and results are not exported. 
+            if df_name == "Grey": 
+                continue
+            else:
+                functions.save_excel(
+                    df,
+                    f"{save_path}/{df_name}_Hydrogen_abatement_costs_hydrotreatment.xlsx",
+                    index=True,
+                    scenario_name=scenario_name[:31],
+                )
 
-        for df_name, df in ht_abatement_dfs.items():
-            functions.save_excel(
-                df,
-                f"{save_path}/{df_name}_Hydrogen_abated_emissions_hydrotreatment.xlsx",
-                index=True,
-                scenario_name=scenario_name[:31],
-            )
+            for df_name, df in ht_abatement_dfs.items():
+                functions.save_excel(
+                    df,
+                    f"{save_path}/{df_name}_Hydrogen_abated_emissions_hydrotreatment.xlsx",
+                    index=True,
+                    scenario_name=scenario_name[:31],
+                )
 
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         functions.save_excel(
@@ -914,7 +918,7 @@ hydrotreatment_options = [
     {"Fossil": False, "SAF": False},
     {"Fossil": True, "SAF": False},
 ]
-so2_abatement_options = [True, False]
+so2_abatement_options = [True, True]
 
 
 if RUN_SENSITIVITES:
