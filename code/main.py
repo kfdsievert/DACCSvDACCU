@@ -918,7 +918,7 @@ hydrotreatment_options = [
     {"Fossil": False, "SAF": False},
     {"Fossil": True, "SAF": False},
 ]
-so2_abatement_options = [True, True]
+so2_abatement_options = [False]
 
 
 if RUN_SENSITIVITES:
