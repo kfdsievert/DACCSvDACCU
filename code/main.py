@@ -40,7 +40,7 @@ def main(
     SIMULATION_END = 2050
     N_YEARS = SIMULATION_END - SIMULATION_START
     WACC = 0.07
-    ANNUAL_DEMAND_GROWTH_RATE = 0.04
+    ANNUAL_DEMAND_GROWTH_RATE = 0.02
     ANNUAL_EFFICIENCY_CHANGE = 0.01
     DEMAND_SHARE = "Global" # To restrict the simulation to a specific region
     MJ_PER_L = 34.69  # Standard volumetric energy density of Jet A-1 fuel (and SAF)
