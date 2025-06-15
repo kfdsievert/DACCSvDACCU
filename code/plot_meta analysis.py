@@ -118,7 +118,7 @@ def draw_table(ax, dataframe, font_size=9, row_height=0.22, grey_background=Fals
 
 # Plot (Right side only)
 fig = plt.figure(figsize=(5, 7))  # Reduced width
-gs = gridspec.GridSpec(4, 1, height_ratios=[0.1, 5.5, 1.5, 1.5], hspace=0.2)
+gs = gridspec.GridSpec(4, 1, height_ratios=[0.1, 1.5, 1.5, 5.5], hspace=0.2)
 
 # Title for harmonized cost projections
 #ax1 = plt.subplot(gs[0])
@@ -126,7 +126,7 @@ gs = gridspec.GridSpec(4, 1, height_ratios=[0.1, 5.5, 1.5, 1.5], hspace=0.2)
 #ax1.text(0.5, 0.5, "Harmonized long-term cost projections", ha='center', va='center', fontsize=11, fontweight='bold')
 
 # Dot plot
-ax2 = plt.subplot(gs[1])
+ax2 = plt.subplot(gs[3])
 
 # Horizontal lines
 for y in study_to_y.values():
@@ -137,7 +137,7 @@ for _, row in combined_data.iterrows():
     ref = row['Reference']
     if ref in study_to_y:
         ax2.scatter(row['Fully Harmonized'], study_to_y[ref],
-                    color='#9ED9E5' if row['Tech'] == 'DACCS' else '#FFB133',
+                    color='#40C6D1' if row['Tech'] == 'DACCS' else '#EA971D',
                     zorder=2,
                     s=20)
 
@@ -153,18 +153,18 @@ ax2.grid(True, axis='x', linestyle='-', alpha=0.5)
 ax2.set_xlabel("Abatement cost ($/tCO₂)", fontsize=10)
 
 # Violin plot
-ax3 = plt.subplot(gs[3])
+ax3 = plt.subplot(gs[1])
 sns.violinplot(
     data=combined_data,
     x='Fully Harmonized',
     y='Tech',
     hue='Tech',
-    palette=['#9ED9E5', '#FFB133'],
+    palette=['#40C6D1', '#EA971D'],
     ax=ax3,
     cut=0,
     inner='box',
     zorder=2,
-    inner_kws=dict(linewidth=0.5, box_width=5, color='.5')
+    inner_kws=dict(linewidth=0.5, box_width=5, color='.3')
 )
 
 # Remove violin outlines
