@@ -347,6 +347,7 @@ def generate_equivalence_gwp(
     bc_net_year = (
         bc_net_2018
         * (dist_net_year / dist_net_2018)
+        * (1- ANNUAL_EFFICIENCY_CHANGE) ** (N_YEARS)
     )  # BC emissions in given year in Mt corrected for demand and efficiency changes
 
     h2o_net_year = (

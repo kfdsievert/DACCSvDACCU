@@ -34,7 +34,7 @@ synfuels_df_low = synfuels_df_low[synfuels_df_low['Reference'].isin(studies_to_k
 
 for df in [synfuels_df_med, synfuels_df_high, synfuels_df_low]:
     df["Year of Cost"] = df["Year of Cost"].astype(int)
-    df["Term"] = np.where(df["Year of Cost"] < 2030, "Short Term", "Long Term")
+    df["Term"] = np.where(df["Year of Cost"] <= 2025, "Short Term", "Long Term")
 
 synfuels_df = pd.concat([synfuels_df_med, synfuels_df_high, synfuels_df_low])
 
@@ -43,6 +43,7 @@ daccs_df_2050 = daccs_df[daccs_df["Term"] == "Long Term"].rename(columns={"Fully
 daccs_df_2050["Tech"] = "DACCS"
 daccs_df_2050 = daccs_df_2050.drop_duplicates(subset=["Fully Harmonized"])
 synfuels_df_2050 = synfuels_df[synfuels_df["Term"] == "Long Term"]
+synfuels_df_2050 = synfuels_df_2050.drop_duplicates(subset=["Fully Harmonized"])
 synfuels_df_2050["Tech"] = "SAF"
 
 combined_data = pd.concat([daccs_df_2050, synfuels_df_2050])
