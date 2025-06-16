@@ -15,7 +15,7 @@ daccs_df.columns = daccs_df.columns.str.strip()
 studies_to_keep_daccs = ["Young et al. 2023", "Sievert et al. 2024", "Fasihi et al. 2019", "Keith et al. 2018", "Pett-Ridge et al. 2024"]
 daccs_df = daccs_df[daccs_df['Reference'].isin(studies_to_keep_daccs)]
 daccs_df.loc[daccs_df['Year of Assumptions in Study'] < 2025, "Term"] = "Short Term"
-daccs_df.loc[daccs_df['Year of Assumptions in Study'] >= 2025, "Term"] = "Long Term"
+daccs_df.loc[daccs_df['Year of Assumptions in Study'] == 2050, "Term"] = "Long Term"
 
 synfuels_df_med = pd.read_excel("./data/Master Standardisation_SAF_Default.xlsx", sheet_name="Standardization Results")
 synfuels_df_high = pd.read_excel("./data/Master Standardisation_SAF_Default.xlsx", sheet_name="High CO2")
@@ -41,6 +41,7 @@ synfuels_df = pd.concat([synfuels_df_med, synfuels_df_high, synfuels_df_low])
 # Filter Long Term
 daccs_df_2050 = daccs_df[daccs_df["Term"] == "Long Term"].rename(columns={"Fully Harmonized NET REMOVED COST (incl T&S": "Fully Harmonized"})
 daccs_df_2050["Tech"] = "DACCS"
+daccs_df_2050 = daccs_df_2050.drop_duplicates(subset=["Fully Harmonized"])
 synfuels_df_2050 = synfuels_df[synfuels_df["Term"] == "Long Term"]
 synfuels_df_2050["Tech"] = "SAF"
 
