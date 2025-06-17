@@ -83,7 +83,7 @@ def main(
 
     # If blue hydrogen is used in SAF production. 
     BLUE_H2 = False
-    GWP_EQUIVALENT_CH4 = "GWP100" # GWP equivalence metric used for methane leakage. Options are "GWP100" or "GWP20".
+    GWP_EQUIVALENT_CH4 = "GWP20" # GWP equivalence metric used for methane leakage. Options are "GWP100" or "GWP20".
 
     # SAF factors are obtained from Brazzola et. al. 2024 or calculated using Markl 2024, Karcher 2018 and Lee et. al. 2023
 
@@ -670,6 +670,8 @@ def main(
     # ---------------- Export results ----------------#
 
     folder_name = datetime.now().strftime("%Y-%m-%d")
+    if BLUE_H2:
+        folder_name += "_Blue_H2"
     scenario_name = ""
     if CONTRAIL_AVOIDANCE["Fossil"] or CONTRAIL_AVOIDANCE["SAF"]:
         if CONTRAIL_AVOIDANCE["Fossil"] and CONTRAIL_AVOIDANCE["SAF"]:
